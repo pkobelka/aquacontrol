@@ -17,6 +17,10 @@ const messaging = firebase.messaging();
 const ICON = '/aquacontrol/icon-192.png';
 const APP_URL = 'https://pkobelka.github.io/aquacontrol/';
 
+// Nová verze SW se aktivuje hned (nečeká na zavření všech oken)
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+
 // Notifikace na pozadí (zavřená/neaktivní karta)
 messaging.onBackgroundMessage(payload => {
   const title = payload.data?.title || 'AquaControl';
