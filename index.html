@@ -873,9 +873,9 @@ function acTogDet(id){
   el.style.display="block";if(arr)arr.textContent="▾";
   var ev=_cachedOpenEvs.find(function(e){return e.id===id;});
   if(!ev){el.innerHTML='<p style="font-size:12px;color:#e23b3b">Událost nenalezena.</p>';return;}
-  firebase.database().ref("aqua_ukoly").orderByChild("eventId").equalTo(id).get().then(function(s){
+  firebase.database().ref("aqua_ukoly").get().then(function(s){
     var ukoly=[];
-    s.forEach(function(c){ukoly.push(Object.assign({id:c.key},c.val()||{}));});
+    s.forEach(function(c){var u=c.val()||{};if(u.eventId===id)ukoly.push(Object.assign({id:c.key},u));});
     ukoly.sort(function(a,b){var ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0;if(ad!==bd)return ad-bd;return(a.termin||9e15)-(b.termin||9e15);});
     el.innerHTML=_udalostKarta(ev,ukoly);
   }).catch(function(){el.innerHTML='<p style="font-size:12px;color:#e23b3b;padding:8px 0">Chyba načtení.</p>';});
