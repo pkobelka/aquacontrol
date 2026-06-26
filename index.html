@@ -412,8 +412,11 @@ function acPrehledCounts(){
  try{ if(!(window.firebase&&firebase.database))return;
   firebase.database().ref("aqua_udalosti").get().then(function(s){
    const c={}, oc={};
-   s.forEach(function(ch){ const e=ch.val()||{}; if(e.uzavreno)return; const sd=e.stredisko,k=e.kat; if(sd&&k){ c[sd+"|"+k]=(c[sd+"|"+k]||0)+1; if(e.objekt) oc[sd+"|"+k+"|"+e.objekt]=(oc[sd+"|"+k+"|"+e.objekt]||0)+1; } });
+   let openTotal=0;
+   s.forEach(function(ch){ const e=ch.val()||{}; if(e.uzavreno)return; openTotal++;
+     const sd=e.stredisko,k=e.kat; if(sd&&k){ c[sd+"|"+k]=(c[sd+"|"+k]||0)+1; if(e.objekt) oc[sd+"|"+k+"|"+e.objekt]=(oc[sd+"|"+k+"|"+e.objekt]||0)+1; } });
    _evCounts=c; _evObjCounts=oc; renderPrehled();
+   try{ const b=document.getElementById("bdgUd"); if(b){ b.textContent=openTotal; b.style.display=openTotal?"":"none"; } }catch(_){}
   }).catch(function(){});
  }catch(_){}
 }
