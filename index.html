@@ -133,7 +133,7 @@ padding:24px;z-index:50;overflow:auto}
   <nav class="menu">
     <a onclick="openUdalosti()">Aktuální události<span class="bdg" id="bdgUd" style="display:none;background:#e23b3b">0</span></a>
     <a onclick="otevriPlan()">Plán vzorkování 2026</a>
-    <a onclick="openMojeUkoly()">Moje úkoly</a>
+    <a onclick="openMojeUkoly()">Moje úkoly<span class="bdg" id="bdgUk" style="display:none;background:#e8881b">0</span></a>
     <a onclick="openCisterny()">Cisterny<span class="bdg" id="bdgCist" style="display:none;background:#1577c8">0</span></a>
     <a onclick="openKontakty()">Kontakty</a>
     <a id="navZariz" onclick="openZarizeni()" style="display:none">Zařízení</a>
@@ -748,6 +748,7 @@ function openMojeUkoly(){
       return (a.termin||9e15)-(b.termin||9e15);
     });
     body.innerHTML=rows.length?rows.map(ukolKartaHTML).join(""):'<p class="hint">Žádné úkoly pro tebe. 🎉</p>';
+    acUkolyBadge();
   }).catch(function(e){ body.innerHTML='<p class="hint">Chyba načtení úkolů: '+esc(e&&e.message?e.message:e)+'</p>'; });
 }
 // Změna stavu úkolu + push zadavateli (echo „přijal/splnil"). Self-úkol (zadal==řešitel) se neupozorňuje.
@@ -1021,6 +1022,8 @@ function zarizZamit(id){ if(!confirm("Opravdu odebrat toto zařízení? (přesta
 // ===== Cisterny – obsazenost =====
 // Odznak v menu = počet cisteren právě v akci (aktivní rezervace teď)
 function acCistBadge(){ try{ if(!(window.firebase&&firebase.database))return; firebase.database().ref("aqua_udalosti").get().then(function(s){ const now=Date.now(); const used=new Set(); s.forEach(function(c){ const e=c.val()||{}; if(e.uzavreno)return; _cistArr(e).forEach(function(x){ if(x.idx!=null&&x.od!=null&&x.do!=null&&x.od<=now&&now<=x.do) used.add(x.idx); }); }); const b=document.getElementById("bdgCist"); if(b){ b.textContent=used.size; b.style.display=used.size?"":"none"; } }).catch(function(){}); }catch(_){} }
+// Odznak „Moje úkoly" = počet mých nesplněných úkolů (řešitel = já)
+function acUkolyBadge(){ try{ if(!(window.firebase&&firebase.database))return; const me=localStorage.getItem("ac_person")||""; const b=document.getElementById("bdgUk"); if(!me){ if(b){b.style.display="none";} return; } firebase.database().ref("aqua_ukoly").orderByChild("resitel").equalTo(me).get().then(function(snap){ let open=0; snap.forEach(function(c){ const u=c.val()||{}; if(u.stav!=="splneny") open++; }); if(b){ b.textContent=open; b.style.display=open?"":"none"; } }).catch(function(){}); }catch(_){} }
 function openCisterny(){
   zavriPlan();
   document.getElementById("seznamHead").textContent="Cisterny";
@@ -1126,6 +1129,9 @@ window.addEventListener("load",acBadgeStartup);
 window.addEventListener("load",acInitGate);
 window.addEventListener("load",acCistBadge);
 window.addEventListener("load",acPrehledCounts);
+window.addEventListener("load",acUkolyBadge);
+// Po návratu do appky (např. po klepnutí na notifikaci) obnov odznaky
+document.addEventListener("visibilitychange",function(){ if(!document.hidden){ acPrehledCounts(); acUkolyBadge(); acCistBadge(); } });
 </script>
 
 <!-- Push notifikace (FCM) -->
