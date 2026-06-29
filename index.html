@@ -226,7 +226,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v26";  // drž v souladu s CACHE v sw.js
+const VERZE="v27";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -706,7 +706,7 @@ function acSaveEvent(){
       co: st.podminka||st.typ||"Mimořádná událost", kde: kontext, kat: _eventKat(),
       stredisko: st.stredisko||"", objekt: st.objekt||"", objektStred: st.objektStred||"", adresa: st.adresa||"",
       zavaznost: st.zavaznost||"", popis: st.popis||"", dotcene: st.dotcene||[],
-      nahlasil: st.nahlasil||"", tel: st.tel||"", cist: cistData,
+      nahlasil: st.nahlasil||"", tel: st.tel||"", cist: cistData, info: st.info||[],
       zadal: zadalKod, zadal_jmeno: uzivatelJmeno(), ts: now
     });
     // úkoly (jen ty s řešitelem nebo popisem)
@@ -852,6 +852,7 @@ function _ukolRadek(u){
 function _udProbeh(ev,ukoly){
   const it=[];
   if(ev.ts)it.push([ev.ts,"🟦","Událost založena — "+(ev.zadal_jmeno||"?")+(ev.nahlasil?" · nahlásil: "+ev.nahlasil:"")]);
+  if(ev.info&&ev.info.length)it.push([(ev.ts||0)+1,"ℹ️","Informováni: "+ev.info.map(function(z){return lidLbl(z);}).join(", ")]);
   _cistArr(ev).forEach(function(c){ if(c.od)it.push([c.od,"🚚",fmtL(c.obj)+" "+(c.typ||"")+(c.misto?" → "+c.misto:"")+" (do "+(c.do?_fmtCas(c.do):"?")+")"]); });
   if(ev.poznamky)Object.keys(ev.poznamky).forEach(function(k){var p=ev.poznamky[k]||{}; if(p.ts!=null)it.push([p.ts,"📝","Poznámka ("+(p.kdo||"?")+"): "+(p.text||"")]);});
   (ukoly||[]).forEach(function(u){
