@@ -228,7 +228,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v33";  // drž v souladu s CACHE v sw.js
+const VERZE="v34";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -378,14 +378,17 @@ function kolizeBlok(){
 }
 function cisternaDetail(){
   const od=_msFrom(st.cistOd,st.cistCas),doo=_msFrom(st.cistDoDatum,st.cistDoCas);
-  const chips=cisternySorted().map(i=>{const c=CISTERNY[i];const on=st.cisterny.includes(i);return `<div class="person ${on?'sel':''}" onclick="togCist(${i})">${fmtL(c.obj)} · ${esc(c.typ)} · ${esc(c.stred)}${c.dispo?'':' ⛔'}</div>`;}).join("");
+  const chips=cisternySorted().map(i=>{const c=CISTERNY[i];const on=st.cisterny.includes(i);const k=_cistKonflikty(i,od,doo);
+    if(k.length&&!on){const kx=k[0];return `<div class="person" title="Obsazená v tomto termínu jinou událostí" style="opacity:.55;cursor:not-allowed;background:#f3f5f7;color:#9aa7b8;border-style:dashed">${fmtL(c.obj)} · ${esc(c.typ)} · ${esc(c.stred)} · 🔴 obsazená ${_fmtCas(kx.od)}–${_fmtCas(kx.do)}</div>`;}
+    return `<div class="person ${on?'sel':''}" onclick="togCist(${i})">${fmtL(c.obj)} · ${esc(c.typ)} · ${esc(c.stred)}${c.dispo?'':' ⛔'}${(k.length&&on)?' · ⚠️ kolize':''}</div>`;}).join("");
   const selDet=st.cisterny.map(i=>{const c=CISTERNY[i];const k=_cistKonflikty(i,od,doo);return `<div class="bc" style="margin:6px 0 0"><span class="t"><b>Vybráno</b>${fmtL(c.obj)} · ${esc(c.typ)} (${esc(c.stred)})</span>${c.pozn?`<span class="t"><b>Pozn.</b>${esc(c.pozn)}</span>`:''}${c.dispo?'':'<span class="t" style="background:#fde9e9;border-color:#f3c2c2"><b>Stav</b>mimo provoz</span>'}${k.length?`<span class="t" style="background:#fde9e9;border-color:#f3c2c2;color:#a32626"><b>⚠️ Kolize</b>${esc(k.map(x=>(x.co||'událost')+' '+_fmtCas(x.od)+'–'+_fmtCas(x.do)).join('; '))}</span>`:''}</div>`;}).join("");
-  return `<div class="fld" style="margin-top:10px"><label>Cisterny (lze vybrat víc)${st.cisterny.length?` · ${st.cisterny.length}`:''}</label><div class="people" style="max-height:200px;overflow:auto">${chips}</div>${selDet}</div>
-    <div class="fld"><label>Místo přistavení</label><input value="${esc(st.cistMisto||'')}" oninput="st.cistMisto=this.value" placeholder="Kam cisternu přistavit (obec, ulice, objekt)…"></div>
-    <div class="two"><div class="fld"><label>Od – datum</label><input type="date" value="${esc(st.cistOd||'')}" onchange="st.cistOd=this.value;render()"></div>
+  const termHint=(od&&doo)?'<p class="hint" style="margin:2px 0 6px">Obsazené cisterny v tomto termínu nejdou vybrat (🔴 obsazená).</p>':'<p class="hint" style="margin:2px 0 6px">Zadej nejdřív termín Od/Do – obsazené cisterny se pak z nabídky vyřadí.</p>';
+  return `<div class="two" style="margin-top:10px"><div class="fld"><label>Od – datum</label><input type="date" value="${esc(st.cistOd||'')}" onchange="st.cistOd=this.value;render()"></div>
     <div class="fld"><label>Od – čas</label>${casSelect('cistCas')}</div></div>
     <div class="two"><div class="fld"><label>Do – datum</label><input type="date" value="${esc(st.cistDoDatum||'')}" onchange="st.cistDoDatum=this.value;render()"></div>
-    <div class="fld"><label>Do – čas</label>${casSelect('cistDoCas')}</div></div>`;
+    <div class="fld"><label>Do – čas</label>${casSelect('cistDoCas')}</div></div>
+    <div class="fld"><label>Cisterny (lze vybrat víc)${st.cisterny.length?` · ${st.cisterny.length}`:''}</label>${termHint}<div class="people" style="max-height:200px;overflow:auto">${chips}</div>${selDet}</div>
+    <div class="fld"><label>Místo přistavení</label><input value="${esc(st.cistMisto||'')}" oninput="st.cistMisto=this.value" placeholder="Kam cisternu přistavit (obec, ulice, objekt)…"></div>`;
 }
 function cisternaBlok(){
  const ano=st.cistAno===true;
