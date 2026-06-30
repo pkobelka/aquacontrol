@@ -228,7 +228,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v30";  // drž v souladu s CACHE v sw.js
+const VERZE="v31";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -551,15 +551,25 @@ function slToggleObj(i){
   var box=document.getElementById("objEv-"+i); if(!box)return;
   if(box.style.display!=="none"){ box.style.display="none"; box.innerHTML=""; _setObjArrow(i,false); return; }
   box.style.display="block"; _setObjArrow(i,true);
-  var render=function(){
-    var list=(_slCtx.byObj&&_slCtx.byObj[o.n])?_slCtx.byObj[o.n]:null;
-    if(!list){ box.innerHTML='<p class="hint" style="margin:6px 0">Načítám událost…</p>'; return false; }
+  var renderList=function(list){
     box.innerHTML=list.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");
     box.classList.remove("slFlash"); void box.offsetWidth; box.classList.add("slFlash");
     box.scrollIntoView({behavior:"smooth",block:"nearest"});
-    return true;
   };
-  if(!render()) setTimeout(render,600);
+  // rychlá cesta: už načteno ve sdílené cache
+  var cached=_slCtx.byObj&&_slCtx.byObj[o.n];
+  if(cached&&cached.length){ renderList(cached); return; }
+  // jinak si data dotáhni napřímo (nezávisle na kat / na sdíleném načtení)
+  box.innerHTML='<p class="hint" style="margin:6px 0">Načítám událost…</p>';
+  if(!(window.firebase&&firebase.database)){ box.innerHTML='<p class="hint" style="margin:6px 0">Databáze není dostupná.</p>'; return; }
+  Promise.all([firebase.database().ref("aqua_udalosti").get(),firebase.database().ref("aqua_ukoly").get()]).then(function(res){
+    if(box.style.display==="none")return; // uživatel mezitím sbalil
+    var ukByEv={}; res[1].forEach(function(c){var u=Object.assign({id:c.key},c.val()||{});(ukByEv[u.eventId]=ukByEv[u.eventId]||[]).push(u);});
+    var list=[]; res[0].forEach(function(c){var e=Object.assign({id:c.key},c.val()||{}); if(!e.uzavreno&&e.objekt===o.n&&e.stredisko===_slCtx.s){ var uk=ukByEv[e.id]||[]; uk.sort(function(a,b){var ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0;if(ad!==bd)return ad-bd;return(a.termin||9e15)-(b.termin||9e15);}); list.push({ev:e,ukoly:uk}); }});
+    if(!list.length){ box.innerHTML='<p class="hint" style="margin:6px 0">Žádná otevřená událost na tomto objektu.</p>'; return; }
+    list.sort(function(a,b){return (b.ev.ts||0)-(a.ev.ts||0);});
+    renderList(list);
+  }).catch(function(e){ box.innerHTML='<p class="hint" style="margin:6px 0;color:#e23b3b">Chyba načtení: '+esc(e&&e.message?e.message:e)+'</p>'; });
 }
 function openKontakty(){
  document.getElementById("seznamHead").textContent="Kontakty ("+LIDE_R.length+")";
