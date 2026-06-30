@@ -228,7 +228,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v32";  // drž v souladu s CACHE v sw.js
+const VERZE="v33";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -1200,7 +1200,7 @@ function zarizZamit(id){ if(!confirm("Opravdu odebrat toto zařízení? (přesta
 
 // ===== Cisterny – obsazenost =====
 // Odznak v menu = počet cisteren právě v akci (aktivní rezervace teď)
-function acCistBadge(){ try{ if(!(window.firebase&&firebase.database))return; firebase.database().ref("aqua_udalosti").get().then(function(s){ const now=Date.now(); const used=new Set(); s.forEach(function(c){ const e=c.val()||{}; if(e.uzavreno)return; _cistArr(e).forEach(function(x){ if(x.idx!=null&&x.od!=null&&x.do!=null&&x.od<=now&&now<=x.do) used.add(x.idx); }); }); const b=document.getElementById("bdgCist"); if(b){ b.textContent=used.size; b.style.display=used.size?"":"none"; } }).catch(function(){}); }catch(_){} }
+function acCistBadge(){ try{ if(!(window.firebase&&firebase.database))return; firebase.database().ref("aqua_udalosti").get().then(function(s){ const now=Date.now(); const used=new Set(); s.forEach(function(c){ const e=c.val()||{}; if(e.uzavreno)return; _cistArr(e).forEach(function(x){ if(x.idx!=null&&x.do!=null&&now<=x.do) used.add(x.idx); }); }); const b=document.getElementById("bdgCist"); if(b){ b.textContent=used.size; b.style.display=used.size?"":"none"; } }).catch(function(){}); }catch(_){} }
 // Odznak „Moje úkoly" = počet mých nesplněných úkolů (řešitel = já)
 function _setUkBadge(snap){ let open=0; snap.forEach(function(c){ const u=c.val()||{}; if(u.stav!=="splneny") open++; }); const b=document.getElementById("bdgUk"); if(b){ b.textContent=open; b.style.display=open?"":"none"; } }
 function acUkolyBadge(){ try{ if(!(window.firebase&&firebase.database))return; const me=localStorage.getItem("ac_person")||""; const b=document.getElementById("bdgUk"); if(!me){ if(b){b.style.display="none";} return; } firebase.database().ref("aqua_ukoly").orderByChild("resitel").equalTo(me).get().then(_setUkBadge).catch(function(){}); }catch(_){} }
