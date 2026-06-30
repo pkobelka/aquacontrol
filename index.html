@@ -228,7 +228,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v31";  // drž v souladu s CACHE v sw.js
+const VERZE="v32";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -480,6 +480,7 @@ function otevriPlan(){_planDatum=dnesISO();document.getElementById("planOv").cla
 function zavriPlan(){document.getElementById("planOv").classList.remove("show");}
 function setPlanDatum(v){if(v)_planDatum=v;renderPlan();}
 function planNav(dir){const d=planDaty();const cand=dir>0?d.find(x=>x>_planDatum):[...d].reverse().find(x=>x<_planDatum);if(cand){_planDatum=cand;renderPlan();}}
+function planDnes(){_planDatum=dnesISO();renderPlan();}
 function renderPlan(){
  const d=planDaty();const hasPrev=d.some(x=>x<_planDatum),hasNext=d.some(x=>x>_planDatum);
  const den=PLAN.filter(p=>p.datum===_planDatum);
@@ -490,6 +491,7 @@ function renderPlan(){
      <input type="date" value="${_planDatum}" onchange="setPlanDatum(this.value)" style="padding:9px 10px;border:1px solid var(--ram);border-radius:9px;font-size:14px;font-family:inherit"></div>
    ${nav(hasNext,1,"Další ▶")}
  </div>
+ <div style="text-align:center;margin-bottom:12px"><button onclick="planDnes()" ${_planDatum===dnesISO()?'disabled':''} style="border:1px solid #1577c8;border-radius:10px;padding:7px 18px;font-weight:800;cursor:${_planDatum===dnesISO()?'default':'pointer'};color:${_planDatum===dnesISO()?'#9aa7b8':'#1577c8'};background:#fff">📅 Dnes</button></div>
  <div class="pl-mes" style="text-align:center">${denTitul(_planDatum)} · ${den.length} ${den.length===1?'odběr':(den.length>=2&&den.length<=4?'odběry':'odběrů')}</div>`;
  if(den.length){h+=`<p class="hint" style="text-align:center;margin:4px 0 10px">Klik na odběr = založit z něj událost.</p><div class="pl-odbery">`+den.map((p,i)=>`<div class="pl-odber" onclick="zPlanu('${_planDatum}',${i})"><b>${esc(p.misto)}</b>${p.rozsah?`<span> · ${esc(p.rozsah)}</span>`:""}</div>`).join("")+`</div>`;}
  else h+=`<p class="hint" style="text-align:center;margin-top:14px">Pro tento den nejsou naplánované žádné odběry. Posuň se šipkami nebo vyber jiné datum.</p>`;
