@@ -228,7 +228,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v28";  // drž v souladu s CACHE v sw.js
+const VERZE="v29";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -865,6 +865,7 @@ function _ukolRadek(u){
       <b style="color:#0b3a66;font-size:13px">${esc(u.popis||"(úkol)")}</b>
       <span style="background:${col};color:#fff;border-radius:7px;padding:1px 7px;font-size:11px;font-weight:800;white-space:nowrap">${lab}</span></div>
     <div style="font-size:11.5px;color:#6b7a8d">řešitel: ${esc(u.resitel_jmeno||u.resitel||"—")}${u.termin_txt?` · termín ${esc(u.termin_txt)}`:""}</div>
+    ${(u.upozornit&&u.upozornit.length)?`<div style="font-size:11.5px;color:#6b7a8d">🔔 upozornit: ${u.upozornit.map(z=>esc(lidLbl(z))).join(", ")}</div>`:""}
     <div style="font-size:11px;color:#9aa7b8">${tl.map(esc).join(" → ")}</div></div>`;
 }
 // chronologický průběh události (založení, cisterny, úkoly zadáno/přijato/splněno, uzavření)
