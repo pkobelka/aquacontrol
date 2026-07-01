@@ -229,7 +229,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v41";  // drž v souladu s CACHE v sw.js
+const VERZE="v42";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -925,6 +925,7 @@ function _udProbeh(ev,ukoly){
     if(u.vznik_ts)it.push([u.vznik_ts,"📋","Úkol zadán"+(u.zadal_jmeno?" ("+u.zadal_jmeno+")":"")+(u.resitel_jmeno?" → "+u.resitel_jmeno:"")+": "+(u.popis||"")]);
     if(u.precteno_ts)it.push([u.precteno_ts,"✓✓",(u.resitel_jmeno||"Řešitel")+" přečetl/a úkol: "+(u.popis||"")]);
     if(u.potvrzeno_ts)it.push([u.potvrzeno_ts,"✅",(u.resitel_jmeno||"Řešitel")+" přijal/a úkol: "+(u.popis||"")]);
+    if(u.poterminu_upozorneno_ts)it.push([u.poterminu_upozorneno_ts,"⏰","Úkol po termínu — upozorněni: "+(u.upozornit||[]).map(function(z){return lidLbl(z);}).join(", ")]);
     if(u.splneno_ts)it.push([u.splneno_ts,"✔️",(u.resitel_jmeno||"Řešitel")+" splnil/a úkol: "+(u.popis||"")]);
   });
   if(ev.navrhy)Object.keys(ev.navrhy).forEach(function(k){var n=ev.navrhy[k]||{}; if(n.ts!=null)it.push([n.ts,"📣",(n.kdo||"Někdo")+" navrhl/a uzavřít"+(n.note?" · "+n.note:"")]);});
