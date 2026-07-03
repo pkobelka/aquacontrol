@@ -142,7 +142,7 @@ padding:24px;z-index:50;overflow:auto}
     <a id="navZariz" onclick="openZarizeni()" style="display:none">Zařízení<span class="bdg" id="bdgZar" style="display:none;background:#e8881b">0</span></a>
     <a id="navLoginEmaily" onclick="openLoginEmaily()" style="display:none">Přístup (e-maily)</a>
     <a id="navSdilet" onclick="acSdilej()" style="display:none">📤 Sdílet appku</a>
-    <a onclick="alert('Sekce Dokumenty – metodické pokyny (mimka).')">Dokumenty</a>
+    <a onclick="openDokumenty()">Dokumenty</a>
     <a id="btnPush" onclick="acEnablePush()">🔔 Povolit notifikace</a>
   </nav>
   <div class="vhos"><b>VHOS</b><i>a.s.</i></div>
@@ -232,7 +232,7 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v52";  // drž v souladu s CACHE v sw.js
+const VERZE="v53";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -538,17 +538,17 @@ function openSeznam(s,kl){
  _slCtx={s:s,kl:kl,objs:objs,loaded:null};
  document.getElementById("seznamHead").textContent=kl+" – "+s+" ("+objs.length+")";
  const evCount=_evCounts[s+"|"+kl]||0;
- const objHtml=objs.length?objs.map((o,i)=>`<div><div class="sl-row"><div>${(_evObjCounts[s+"|"+kl+"|"+o.n]||0)>0?`<b onclick="slToggleObj(${i})" style="cursor:pointer">${esc(o.n)}</b>`:`<b>${esc(o.n)}</b>`}${(_evObjCounts[s+"|"+kl+"|"+o.n]||0)>0?` <span onclick="slToggleObj(${i})" title="Zobrazit událost" style="background:#e23b3b;color:#fff;border-radius:9px;padding:1px 8px;font-size:11px;font-weight:800;cursor:pointer">${_evObjCounts[s+"|"+kl+"|"+o.n]} <span id="objArr-${i}">▸</span></span>`:""}${o.p?` <span style="color:#6b7a8d">· ${esc(o.p)}</span>`:""}${o.c?` <span class="sl-tech" title="Zobrazit info o čerpadle" onclick="document.getElementById('ci${i}').classList.toggle('show')">🔧</span>`:""}</div>`+(o.lat?`<a class="sl-map" target="_blank" href="https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lon}#map=16/${o.lat}/${o.lon}">📍 Mapa</a>`:`<span class="sl-nogps">bez GPS</span>`)+`</div>${o.c?`<div class="sl-cinfo" id="ci${i}">${esc(o.c)}</div>`:""}${(_evObjCounts[s+"|"+kl+"|"+o.n]||0)>0?`<div id="objEv-${i}" style="display:none;padding:2px 6px 6px;background:#f6fafe;border-bottom:1px solid #eef2f7"></div>`:""}</div>`).join(""):`<p class="hint">Žádné objekty.</p>`;
+ const objHtml=objs.length?objs.map((o,i)=>{const cnt=_evObjCounts[s+"|"+kl+"|"+o.n]||0;return `<div><div class="sl-row"><div><b onclick="slToggleObj(${i})" style="cursor:pointer">${esc(o.n)}</b><span id="objBdg-${i}" onclick="slToggleObj(${i})" title="Zobrazit událost" style="cursor:pointer;background:#e23b3b;color:#fff;border-radius:9px;padding:1px 8px;font-size:11px;font-weight:800;margin-left:6px;${cnt>0?'':'display:none'}"><span id="objCnt-${i}">${cnt}</span> <span id="objArr-${i}">▸</span></span>${o.p?` <span style="color:#6b7a8d">· ${esc(o.p)}</span>`:""}${o.c?` <span class="sl-tech" title="Zobrazit info o čerpadle" onclick="document.getElementById('ci${i}').classList.toggle('show')">🔧</span>`:""}</div>`+(o.lat?`<a class="sl-map" target="_blank" href="https://www.openstreetmap.org/?mlat=${o.lat}&mlon=${o.lon}#map=16/${o.lat}/${o.lon}">📍 Mapa</a>`:`<span class="sl-nogps">bez GPS</span>`)+`</div>${o.c?`<div class="sl-cinfo" id="ci${i}">${esc(o.c)}</div>`:""}<div id="objEv-${i}" style="display:none;padding:2px 6px 6px;background:#f6fafe;border-bottom:1px solid #eef2f7"></div></div>`;}).join(""):`<p class="hint">Žádné objekty.</p>`;
  let html="";
- if(evCount>0) html+=`<div id="slEventy" style="margin-bottom:12px"><p class="hint" style="margin:0">Načítám události…</p></div>`;
- if(objs.length) html+=`<div style="font-size:12px;font-weight:800;color:#6b7a8d;margin:${evCount>0?'10px':'0'} 0 4px;border-top:${evCount>0?'1px solid #e6eef6':'none'};padding-top:${evCount>0?'10px':'0'}">Objekty (${objs.length})</div>`;
+ html+=`<div id="slEventy" style="margin-bottom:12px;display:none"></div>`;
+ if(objs.length) html+=`<div style="font-size:12px;font-weight:800;color:#6b7a8d;margin:10px 0 4px">Objekty (${objs.length})</div>`;
  html+=objHtml;
  document.getElementById("seznamBody").innerHTML=html;
  document.getElementById("seznamOv").classList.add("show");
- if(evCount>0&&window.firebase&&firebase.database){
+ if(window.firebase&&firebase.database){
    _udNactiVse(function(err,evs,byEvent){
      const el=document.getElementById("slEventy");
-     if(err){if(el)el.innerHTML='<p class="hint">Chyba načtení událostí.</p>';return;}
+     if(err){if(el){el.style.display="block";el.innerHTML='<p class="hint">Chyba načtení událostí.</p>';}return;}
      const filtered=evs.filter(function(e){return !e.uzavreno&&e.stredisko===s&&e.kat===kl;});
      const objNames={};objs.forEach(function(o){objNames[o.n]=1;});
      const byObj={},orphans=[];
@@ -562,8 +562,8 @@ function openSeznam(s,kl){
        if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin-bottom:8px">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");}
        else{el.style.display="none";el.innerHTML="";}
      }
-     // pokud je nějaký objekt právě rozbalený, dotáhni mu čerstvá data
-     objs.forEach(function(o,i){const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
+     // přepočítej odznaky objektů z čerstvých dat (kvůli zastaralému počtu) + dotáhni rozbalené
+     objs.forEach(function(o,i){const cnt=(byObj[o.n]||[]).length;const bd=document.getElementById("objBdg-"+i),cn=document.getElementById("objCnt-"+i);if(cn)cn.textContent=cnt;if(bd)bd.style.display=cnt>0?"":"none";const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
    });
  }
 }
@@ -595,6 +595,18 @@ function slToggleObj(i){
     list.sort(function(a,b){return (b.ev.ts||0)-(a.ev.ts||0);});
     renderList(list);
   }).catch(function(e){ box.innerHTML='<p class="hint" style="margin:6px 0;color:#e23b3b">Chyba načtení: '+esc(e&&e.message?e.message:e)+'</p>'; });
+}
+const DOKUMENTY=[
+  {f:"dokumenty/MP_01_2021_Kvalita.pdf", t:"MP 01/2021 – Kvalita", d:"Kontrola a hodnocení kvality pitné vody"},
+  {f:"dokumenty/MP_04_2021_Dezinfekce.pdf", t:"MP 04/2021 – Dezinfekce", d:"Dezinfekce vody"},
+  {f:"dokumenty/MP_06_2021_Zabezpeceni_vody.pdf", t:"MP 06/2021 – Zabezpečení vody", d:"Zabezpečení vody, riziko kontaminace"},
+  {f:"dokumenty/MP_07_2021_Opatreni_zhorseni_kvality.pdf", t:"MP 07/2021 – Mimořádné zhoršení kvality", d:"Opatření při mimořádném zhoršení kvality vody"}
+];
+function openDokumenty(){
+  zavriPlan();
+  document.getElementById("seznamHead").textContent="Dokumenty – metodické pokyny ("+DOKUMENTY.length+")";
+  document.getElementById("seznamBody").innerHTML='<p class="hint" style="margin:0 0 10px">Metodické pokyny VHOS a.s. Klikni na dokument pro otevření / stažení (PDF).</p>'+DOKUMENTY.map(function(d){return '<div style="border:1px solid #dbe6f1;border-radius:12px;padding:12px;margin-bottom:10px;background:#fbfdff;display:flex;justify-content:space-between;gap:10px;align-items:center"><div style="min-width:0"><div style="font-weight:800;color:#0b3a66">📄 '+esc(d.t)+'</div><div style="font-size:12px;color:#6b7a8d">'+esc(d.d)+'</div></div><a class="sl-map" href="'+esc(d.f)+'" target="_blank" rel="noopener" style="flex:none">Otevřít ▸</a></div>';}).join("");
+  document.getElementById("seznamOv").classList.add("show");
 }
 function openKontakty(){
  document.getElementById("seznamHead").textContent="Kontakty ("+LIDE_R.length+")";
