@@ -1,0 +1,9 @@
+{
+  "name": "aquacontrol",
+  "private": true,
+  "description": "Serverová funkce pro PIN přihlášení AquaControlu (nasazuje se na Vercel, samotná appka běží dál na GitHub Pages).",
+  "dependencies": {
+    "firebase-admin": "^12.1.0",
+    "bcryptjs": "^2.4.3"
+  }
+}

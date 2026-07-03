@@ -1,0 +1,71 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    // ---- Uzly jiné appky (mojebudky), sdílející stejný Firebase projekt ----
+    // Ponecháno beze změny přesně tak, jak bylo nastaveno – nejsou v rozsahu
+    // téhle opravy (viz bezpečnostní audit AquaControlu, poznámka k rozsahu).
+    // Doporučeno projít stejnou optikou v repu té appky.
+    "presence":          { ".read": true, ".write": true },
+    "aktivita":          { ".read": true, ".write": true },
+    "budky_edit":        { ".read": true, ".write": true },
+    "admin_requests":    { ".read": true, ".write": true },
+    "spravci":           { ".read": true, ".write": true },
+    "spravce_aktivita":  { ".read": true, ".write": true },
+    "prihlaseni":        { ".read": true, ".write": true },
+    "navstevnost_log":   { ".read": true, ".write": true },
+    "push_broadcast":    { ".read": true, ".write": true },
+    "push_history":      { ".read": true, ".write": true },
+    "push_tokens": {
+      "$id": { ".read": true, ".write": true }
+    },
+    "zpravy_spravci": {
+      "$loginId": { ".read": true, ".write": true }
+    },
+    "hesla": {
+      "$uid": { ".read": true, ".write": true }
+    },
+    "aqua_login_email": { ".read": "auth != null", ".write": "auth != null" },
+
+    // ---- AquaControl – vyžaduje přihlášení (viz api/login.js + index.html) ----
+
+    "aqua_udalosti": {
+      ".read": "auth != null",
+      "$id": { ".write": "auth != null" }
+    },
+
+    "aqua_ukoly": {
+      ".read": "auth != null",
+      ".indexOn": ["resitel", "stav"],
+      "$id": { ".write": "auth != null" }
+    },
+
+    // Čte se jen v admin obrazovce „Zařízení"; zápis (registrace vlastního
+    // zařízení) smí kdokoli přihlášený, schvalování/mazání řeší UI podle
+    // jsemAdmin() + claimu admin níž.
+    "aqua_zarizeni": {
+      ".read": "auth != null && auth.token.admin === true",
+      "$id": { ".write": "auth != null" }
+    },
+
+    // FCM tokeny – citlivější, čtení jen pro admina (posílá push_aqua.py
+    // stejně přes service account, který pravidla obchází).
+    "aqua_push_tokens": {
+      "$id": {
+        ".read": "auth != null && auth.token.admin === true",
+        ".write": "auth != null"
+      }
+    },
+
+    "aqua_outbox": {
+      ".read": "auth != null && auth.token.admin === true",
+      "$id": { ".write": "auth != null" }
+    },
+
+    // PINy a počítadlo pokusů – jen pro service account (login.js, set_pins_aqua.py).
+    // Explicitně zavřeno, i když by to jinak spadlo pod výchozí ".write": false výše.
+    "aqua_pins":         { ".read": false, ".write": false },
+    "aqua_pin_attempts": { ".read": false, ".write": false }
+  }
+}

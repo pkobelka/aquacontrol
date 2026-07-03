@@ -148,7 +148,7 @@ padding:24px;z-index:50;overflow:auto}
 
 <div class="topbar">
   <div class="dat" id="dat">—</div>
-  <div id="acWho" onclick="acEnablePush()" title="Kdo jsi na tomto zařízení (klikni pro změnu)" style="cursor:pointer;font-size:12px;font-weight:800;border-radius:20px;padding:4px 11px;white-space:nowrap"></div>
+  <div id="acWho" onclick="acWhoClicked()" title="Přihlášení (klikni pro přihlášení/odhlášení)" style="cursor:pointer;font-size:12px;font-weight:800;border-radius:20px;padding:4px 11px;white-space:nowrap"></div>
   <div class="online"><span class="l">Online:</span><span class="mono" title="Petr Kobelka">Kobelka</span><span class="mono" title="Bláža Kolaříková">Kolaříková</span><span class="mono" title="Lukáš Vykydal">Vykydal</span></div>
   <button class="btn-nova" onclick="otevri()">＋ Nová událost</button>
 </div>
@@ -555,11 +555,11 @@ function openSeznam(s,kl){
      _slCtx.loaded=filtered;_slCtx.byObj=byObj;
      // nahoře jen události bez konkrétního objektu (zbytek je rozbalovací u objektů)
      if(el){
-       if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin-bottom:8px">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");}
+       if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+qid(x.ev.id)+'" style="margin-bottom:8px">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");}
        else{el.style.display="none";el.innerHTML="";}
      }
      // pokud je nějaký objekt právě rozbalený, dotáhni mu čerstvá data
-     objs.forEach(function(o,i){const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
+     objs.forEach(function(o,i){const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+qid(x.ev.id)+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
    });
  }
 }
@@ -573,7 +573,7 @@ function slToggleObj(i){
   if(box.style.display!=="none"){ box.style.display="none"; box.innerHTML=""; _setObjArrow(i,false); return; }
   box.style.display="block"; _setObjArrow(i,true);
   var renderList=function(list){
-    box.innerHTML=list.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");
+    box.innerHTML=list.map(function(x){return '<div id="udDet-'+qid(x.ev.id)+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");
     box.classList.remove("slFlash"); void box.offsetWidth; box.classList.add("slFlash");
     box.scrollIntoView({behavior:"smooth",block:"nearest"});
   };
@@ -804,18 +804,18 @@ function ukolKartaHTML(u){
   const badge=poTerminu?`<span style="background:#e23b3b;color:#fff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800">⏰ Po termínu</span>`
                        :`<span style="background:${s[1]};color:#fff;border-radius:8px;padding:2px 8px;font-size:12px;font-weight:800">${s[0]}</span>`;
   let btns="";
-  if(u.stav==="novy") btns=`<button onclick="ukolPotvrd('${u.id}')" style="border:0;border-radius:10px;padding:8px 14px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">Potvrdit přijetí</button>`+
-                           `<button onclick="ukolSplneno('${u.id}')" style="border:1px solid #2faf5a;border-radius:10px;padding:8px 14px;background:#fff;color:#2faf5a;font-weight:800;cursor:pointer">Splněno</button>`;
-  else if(u.stav==="potvrzeny") btns=`<button onclick="ukolSplneno('${u.id}')" style="border:0;border-radius:10px;padding:8px 14px;background:#2faf5a;color:#fff;font-weight:800;cursor:pointer">Označit splněno</button>`;
+  if(u.stav==="novy") btns=`<button onclick="ukolPotvrd('${qid(u.id)}')" style="border:0;border-radius:10px;padding:8px 14px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">Potvrdit přijetí</button>`+
+                           `<button onclick="ukolSplneno('${qid(u.id)}')" style="border:1px solid #2faf5a;border-radius:10px;padding:8px 14px;background:#fff;color:#2faf5a;font-weight:800;cursor:pointer">Splněno</button>`;
+  else if(u.stav==="potvrzeny") btns=`<button onclick="ukolSplneno('${qid(u.id)}')" style="border:0;border-radius:10px;padding:8px 14px;background:#2faf5a;color:#fff;font-weight:800;cursor:pointer">Označit splněno</button>`;
   return `<div style="border:1px solid #dbe6f1;border-radius:14px;padding:12px;margin-bottom:10px;background:#fbfdff">
-    <div onclick="ukolTogDet('${u.id}')" style="cursor:pointer">
+    <div onclick="ukolTogDet('${qid(u.id)}')" style="cursor:pointer">
     <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:6px">${badge}
-      <span style="display:flex;align-items:center;gap:6px">${u.termin?`<span style="font-size:12px;color:${poTerminu?'#e23b3b':'#6b7a8d'};font-weight:700">termín ${esc(u.termin_txt||"")}</span>`:`<span style="font-size:12px;color:#9aa7b8">bez termínu</span>`}<span id="ukArr-${u.id}" style="font-size:11px;color:#b0bac8">▸</span></span></div>
+      <span style="display:flex;align-items:center;gap:6px">${u.termin?`<span style="font-size:12px;color:${poTerminu?'#e23b3b':'#6b7a8d'};font-weight:700">termín ${esc(u.termin_txt||"")}</span>`:`<span style="font-size:12px;color:#9aa7b8">bez termínu</span>`}<span id="ukArr-${qid(u.id)}" style="font-size:11px;color:#b0bac8">▸</span></span></div>
     <div style="font-weight:800;color:#0b3a66;margin-bottom:2px">${esc(u.popis||"(bez popisu)")}</div>
     ${u.kontext?`<div style="font-size:12.5px;color:#6b7a8d;margin-bottom:2px">${esc(u.co?u.co+" · ":"")}${esc(u.kontext)}</div>`:""}
     <div style="font-size:12px;color:#9aa7b8;margin-bottom:8px">zadal: ${esc(u.zadal_jmeno||"—")}</div>
     </div>
-    <div id="ukDet-${u.id}" style="display:none;margin-bottom:8px"></div>
+    <div id="ukDet-${qid(u.id)}" style="display:none;margin-bottom:8px"></div>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${btns}</div></div>`;
 }
 function openMojeUkoly(){
@@ -959,16 +959,16 @@ function _udalostKarta(ev,ukoly){
   const nahl=ev.nahlasil?`<div style="font-size:12px;color:#6b7a8d">nahlásil: ${esc(ev.nahlasil)}${ev.tel?` · ${esc(ev.tel)}`:""}</div>`:"";
   let cistLine="";
   { const arr=_cistArr(ev); if(arr.length){ const c0=arr[0];
-    cistLine=`<div style="font-size:12px;color:#33485e;margin-top:2px">🚚 ${arr.map(c=>esc(fmtL(c.obj)+" · "+(c.typ||""))).join(", ")}${c0.misto?` → ${esc(c0.misto)}`:""}${(c0.od||c0.do)?` · ${c0.od?_fmtCas(c0.od):"?"}–${c0.do?_fmtCas(c0.do):"?"}`:""}${!ev.uzavreno?` <a onclick="upravCisternu('${ev.id}')" style="color:#0b5cae;cursor:pointer;font-weight:700">✏️ upravit</a>`:""}</div>`; } }
-  const akce=ev.uzavreno?"":'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="udalostUkol(\''+ev.id+'\')" style="border:0;border-radius:10px;padding:7px 12px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">➕ Úkol</button><button onclick="udalostPoznamka(\''+ev.id+'\')" style="border:1px solid #1577c8;border-radius:10px;padding:7px 12px;background:#fff;color:#1577c8;font-weight:800;cursor:pointer">➕ Poznámka</button></div>';
+    cistLine=`<div style="font-size:12px;color:#33485e;margin-top:2px">🚚 ${arr.map(c=>esc(fmtL(c.obj)+" · "+(c.typ||""))).join(", ")}${c0.misto?` → ${esc(c0.misto)}`:""}${(c0.od||c0.do)?` · ${c0.od?_fmtCas(c0.od):"?"}–${c0.do?_fmtCas(c0.do):"?"}`:""}${!ev.uzavreno?` <a onclick="upravCisternu('${qid(ev.id)}')" style="color:#0b5cae;cursor:pointer;font-weight:700">✏️ upravit</a>`:""}</div>`; } }
+  const akce=ev.uzavreno?"":'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="udalostUkol(\''+qid(ev.id)+'\')" style="border:0;border-radius:10px;padding:7px 12px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">➕ Úkol</button><button onclick="udalostPoznamka(\''+qid(ev.id)+'\')" style="border:1px solid #1577c8;border-radius:10px;padding:7px 12px;background:#fff;color:#1577c8;font-weight:800;cursor:pointer">➕ Poznámka</button></div>';
   let footer;
   if(ev.uzavreno){
     footer=`<div style="margin-top:8px;font-size:12px;color:#2faf5a;font-weight:700">🔒 Uzavřeno — ${esc(ev.uzavrel_jmeno||"")} · ${_fmtCas(ev.uzavreno_ts)}${ev.uzavreno_pozn?` · ${esc(ev.uzavreno_pozn)}`:""}</div>`;
   }else{
     const muzu=MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");
     footer=`<div style="display:flex;gap:8px;margin-top:8px">${muzu
-      ?`<button onclick="uzavriUdalost('${ev.id}')" style="border:0;border-radius:10px;padding:8px 14px;background:#0b5cae;color:#fff;font-weight:800;cursor:pointer">🔒 Uzavřít událost</button>`
-      :`<button onclick="vyzviUzavreni('${ev.id}')" style="border:1px solid #0b5cae;border-radius:10px;padding:8px 14px;background:#fff;color:#0b5cae;font-weight:800;cursor:pointer">📣 Vyzvat k uzavření</button>`}</div>`;
+      ?`<button onclick="uzavriUdalost('${qid(ev.id)}')" style="border:0;border-radius:10px;padding:8px 14px;background:#0b5cae;color:#fff;font-weight:800;cursor:pointer">🔒 Uzavřít událost</button>`
+      :`<button onclick="vyzviUzavreni('${qid(ev.id)}')" style="border:1px solid #0b5cae;border-radius:10px;padding:8px 14px;background:#fff;color:#0b5cae;font-weight:800;cursor:pointer">📣 Vyzvat k uzavření</button>`}</div>`;
   }
   return `<div style="border:1px solid #dbe6f1;border-radius:14px;padding:12px;margin-bottom:12px;background:${ev.uzavreno?'#f6f8fa':'#fbfdff'};${ev.uzavreno?'opacity:.78':''}">
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px">
@@ -980,8 +980,8 @@ function _udalostKarta(ev,ukoly){
     ${cistLine}
     ${ukoly.length?`<div style="margin-top:6px">${ukoly.map(_ukolRadek).join("")}</div>`:""}
     ${akce}
-    <div id="prubA-${ev.id}" onclick="_udTog('${ev.id}')" style="cursor:pointer;margin-top:8px;font-size:12px;font-weight:800;color:#0b5cae;user-select:none">📜 Průběh / historie ▴</div>
-    <div id="prub-${ev.id}" style="display:block;margin-top:4px;border-top:1px solid #eef2f6;padding-top:6px">${_udProbeh(ev,ukoly)}</div>
+    <div id="prubA-${qid(ev.id)}" onclick="_udTog('${qid(ev.id)}')" style="cursor:pointer;margin-top:8px;font-size:12px;font-weight:800;color:#0b5cae;user-select:none">📜 Průběh / historie ▴</div>
+    <div id="prub-${qid(ev.id)}" style="display:block;margin-top:4px;border-top:1px solid #eef2f6;padding-top:6px">${_udProbeh(ev,ukoly)}</div>
     ${footer}</div>`;
 }
 function _udNactiVse(cb){
@@ -1001,7 +1001,7 @@ function acRefreshBadge(evs){
 function _udalostRadek(ev){
   var zl=(ev.zavaznost&&ZAV[ev.zavaznost])?ZAV[ev.zavaznost]:null;
   var zlB=zl?'<span style="background:'+zl[1]+';color:#fff;border-radius:6px;padding:1px 7px;font-size:11px;font-weight:800;white-space:nowrap">'+zl[0]+'</span>':"";
-  var eid=ev.id;
+  var eid=qid(ev.id);
   return '<div style="border-bottom:1px solid #eef2f7">'+
     '<div onclick="acTogDet(\''+eid+'\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;padding:10px 12px;flex-wrap:wrap">'+
       zlB+
@@ -1219,8 +1219,8 @@ function openZarizeni(){
         +'<div style="font-size:11.5px;color:#9aa7b8;margin:2px 0">'+esc(r.ua||"—")+'</div>'
         +'<div style="font-size:11px;color:#9aa7b8">registrace: '+_fmtCas(r.ts)+'</div>'
         +'<div style="display:flex;gap:8px;margin-top:8px">'
-        +(pend?'<button onclick="zarizSchval(\''+r.id+'\')" style="border:0;border-radius:10px;padding:8px 14px;background:#2faf5a;color:#fff;font-weight:800;cursor:pointer">✅ Schválit</button>':'')
-        +'<button onclick="zarizZamit(\''+r.id+'\')" style="border:1px solid #c0392b;border-radius:10px;padding:8px 14px;background:#fff;color:#c0392b;font-weight:800;cursor:pointer">🗑️ Odebrat</button>'
+        +(pend?'<button onclick="zarizSchval(\''+qid(r.id)+'\')" style="border:0;border-radius:10px;padding:8px 14px;background:#2faf5a;color:#fff;font-weight:800;cursor:pointer">✅ Schválit</button>':'')
+        +'<button onclick="zarizZamit(\''+qid(r.id)+'\')" style="border:1px solid #c0392b;border-radius:10px;padding:8px 14px;background:#fff;color:#c0392b;font-weight:800;cursor:pointer">🗑️ Odebrat</button>'
         +'</div></div>';
     }).join("");
   }).catch(function(e){ const m=(e&&e.message?e.message:String(e)); body.innerHTML='<p class="hint">Chyba: '+esc(m)+(/permission/i.test(m)?'<br><br>V pravidlech Firebase je potřeba povolit čtení uzlu <b>aqua_zarizeni</b>.':'')+'</p>'; });
@@ -1296,19 +1296,66 @@ function openCistDetail(i){
   ov.onclick=function(e){ if(e.target===ov)close(); };
   ov.querySelector("#cdX").onclick=close;
 }
-// Výběr „kdo jsi" (uloží se k push tokenu, ať chodí adresné notifikace)
-function acPickPerson(){
+// Přihlášení kódem + PINem – PIN se ověřuje na serveru (api/login.js), appka
+// dostane zpět podepsaný Firebase token a přihlásí se jím (viz onAuthStateChanged výše).
+function acLoginPin(){
   return new Promise(resolve=>{
-    const cur=localStorage.getItem("ac_person")||"";
-    const opts='<option value="">— vyber sebe —</option>'+LIDE_R.map(p=>'<option value="'+p[0]+'"'+(p[0]===cur?' selected':'')+'>'+esc(p[1])+'</option>').join("");
     const ov=document.createElement("div");
     ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px";
-    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:360px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)"><h3 style="margin:0 0 6px;color:#0b3a66">Kdo jsi?</h3><p style="margin:0 0 12px;font-size:13px;color:#555">Vyber své jméno, ať ti chodí notifikace adresované přímo tobě.</p><select id="acWhoSel" style="width:100%;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px">'+opts+'</select><div style="display:flex;gap:8px;margin-top:14px"><button id="acWhoCancel" style="flex:1;padding:10px;border:1px solid #ccc;background:#f3f3f3;border-radius:8px;cursor:pointer">Zrušit</button><button id="acWhoOk" style="flex:1;padding:10px;border:0;background:#0b5cae;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">Potvrdit</button></div></div>';
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:320px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3)">'
+      +'<h3 style="margin:0 0 6px;color:#0b3a66">Přihlášení</h3>'
+      +'<p style="margin:0 0 12px;font-size:13px;color:#555">Zadej svůj kód a PIN.</p>'
+      +'<input id="acLgCode" placeholder="Kód (např. TŘ)" autocapitalize="characters" autocomplete="username" style="width:100%;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;margin-bottom:8px;box-sizing:border-box">'
+      +'<input id="acLgPin" placeholder="PIN" inputmode="numeric" type="password" autocomplete="current-password" style="width:100%;padding:10px;font-size:15px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box">'
+      +'<div id="acLgErr" style="color:#c0392b;font-size:12.5px;min-height:16px;margin-top:6px"></div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px"><button id="acLgCancel" style="flex:1;padding:10px;border:1px solid #ccc;background:#f3f3f3;border-radius:8px;cursor:pointer">Zrušit</button><button id="acLgOk" style="flex:1;padding:10px;border:0;background:#0b5cae;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">Přihlásit</button></div>'
+      +'</div>';
     document.body.appendChild(ov);
-    ov.onclick=(e)=>{ if(e.target===ov){document.body.removeChild(ov);resolve(null);} };
-    ov.querySelector("#acWhoCancel").onclick=()=>{document.body.removeChild(ov);resolve(null);};
-    ov.querySelector("#acWhoOk").onclick=()=>{const v=ov.querySelector("#acWhoSel").value;document.body.removeChild(ov);resolve(v||null);};
+    const close=(v)=>{ if(ov.parentNode)document.body.removeChild(ov); resolve(v); };
+    ov.onclick=(e)=>{ if(e.target===ov)close(null); };
+    ov.querySelector("#acLgCancel").onclick=()=>close(null);
+    const err=ov.querySelector("#acLgErr");
+    const submit=async()=>{
+      const code=(ov.querySelector("#acLgCode").value||"").trim().toUpperCase();
+      const pin=(ov.querySelector("#acLgPin").value||"").trim();
+      if(!code||!pin){ err.textContent="Vyplň kód i PIN."; return; }
+      const btn=ov.querySelector("#acLgOk"); btn.disabled=true; btn.textContent="…";
+      try{
+        const res=await fetch(window.AC_LOGIN_URL,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({code,pin})});
+        const data=await res.json().catch(()=>({}));
+        if(!res.ok||!data.token){
+          err.textContent = res.status===429 ? "Moc pokusů, zkus to za chvíli znovu." : "Špatný kód nebo PIN.";
+          btn.disabled=false; btn.textContent="Přihlásit";
+          return;
+        }
+        await firebase.auth().signInWithCustomToken(data.token);
+        close(code);
+      }catch(e){
+        err.textContent="Přihlášení se nepovedlo, zkontroluj připojení.";
+        btn.disabled=false; btn.textContent="Přihlásit";
+      }
+    };
+    ov.querySelector("#acLgOk").onclick=submit;
+    ov.querySelector("#acLgPin").addEventListener("keydown",e=>{ if(e.key==="Enter")submit(); });
   });
+}
+// Vrátí kód přihlášeného člověka; pokud ještě není přihlášený, nabídne PIN login.
+async function acEnsureLogin(){
+  const u=window.firebase&&firebase.auth&&firebase.auth().currentUser;
+  if(u){
+    try{ const r=await u.getIdTokenResult(); if(r.claims&&r.claims.person) return r.claims.person; }catch(_){}
+  }
+  return acLoginPin();
+}
+async function acWhoClicked(){
+  const u=window.firebase&&firebase.auth&&firebase.auth().currentUser;
+  if(u){
+    if(confirm('Přihlášen jako '+uzivatelJmeno()+'. Odhlásit se z tohoto zařízení?')){
+      try{ await firebase.auth().signOut(); }catch(_){}
+    }
+    return;
+  }
+  await acEnsureLogin();
 }
 
 function krok(d){
@@ -1340,6 +1387,9 @@ function hotovoHTML(){
  <div style="margin-top:18px"><button class="b-save" style="border:0;border-radius:12px;padding:10px 22px;color:#fff;font-weight:800;cursor:pointer" onclick="zavri()">Hotovo</button></div></div>`;
 }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Bezpečné vložení DB klíče (Firebase id) dovnitř inline onclick="fn('...')" – i kdyby
+// klíč obsahoval uvozovku/zpětné lomítko (např. cizí zápis mimo appku), neprolomí to atribut.
+function qid(s){return String(s==null?"":s).replace(/[\\'"<>]/g,c=>({'\\':'\\\\',"'":"\\'",'"':'&quot;','<':'&lt;','>':'&gt;'}[c]));}
 
 // Otevření „Moje úkoly" při příchodu z push notifikace (#moje-ukoly)
 function _acHashRoute(){ if((location.hash||"").indexOf("moje-ukoly")>=0){ setTimeout(openMojeUkoly,300); } }
@@ -1359,11 +1409,14 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script>
 (function(){
   var CFG={apiKey:"AIzaSyBEAhZNxq3REoy1vExIrnNEXlyFXHzP4uI",authDomain:"moje-budky.firebaseapp.com",databaseURL:"https://moje-budky-default-rtdb.firebaseio.com",projectId:"moje-budky",storageBucket:"moje-budky.firebasestorage.app",messagingSenderId:"325649258561",appId:"1:325649258561:web:b5571c3278d98405320ec0"};
   var VAPID='BCn3YD9DqB2ejEGoqAxpnUpKuo6oG3TPBrGhjgXtLuQl4kbEee_hghSKE6nJ8ttffH-RIMjtyPNY-PPflKiCSho';
-  // trvalé id zařízení (AC nemá login)
+  // Serverová funkce, co ověří PIN a vrátí Firebase custom token (viz api/login.js + README)
+  window.AC_LOGIN_URL = "https://REPLACE-ME.vercel.app/api/login";
+  // trvalé id zařízení (pro rozlišení telefonů/PC jednoho přihlášeného člověka)
   function devId(){var k='ac_dev_id';var v=localStorage.getItem(k);if(!v){v='ac-'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);localStorage.setItem(k,v);}return v;}
   function setStav(t,ok){var b=document.getElementById('btnPush');if(!b)return;b.textContent=t;b.dataset.ok=ok?'1':'';}
   function supported(){return ('Notification'in window)&&('serviceWorker'in navigator)&&('PushManager'in window)&&(location.protocol==='https:');}
@@ -1371,6 +1424,14 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
   function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent);}
 
   try{ firebase.initializeApp(CFG); }catch(e){}
+  try{ firebase.auth().setPersistence(firebase.auth.Auth.Persistence.LOCAL); }catch(e){}
+  firebase.auth().onAuthStateChanged(async function(u){
+    try{
+      if(u){ const r=await u.getIdTokenResult(); if(r.claims&&r.claims.person) localStorage.setItem("ac_person", r.claims.person); }
+      else { localStorage.removeItem("ac_person"); }
+    }catch(_){}
+    try{ acRenderWho(); }catch(_){}
+  });
 
   window.acEnablePush=async function(){
     // iPhone: push jen z appky přidané na plochu
@@ -1382,11 +1443,9 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       alert('Tenhle prohlížeč push nepodporuje.\n\nÚdaje:\n• Notification: '+('Notification'in window)+'\n• serviceWorker: '+('serviceWorker'in navigator)+'\n• PushManager: '+('PushManager'in window)+'\n• https: '+(location.protocol==='https:'));
       return;
     }
-    // Vždy nabídni výběr osoby (i pro pozdější změnu), předvybráno aktuální
-    var person=await acPickPerson();
+    // Vyžaduj přihlášení kódem+PINem (i při pozdější změně/re-loginu)
+    var person=await acEnsureLogin();
     if(!person){ var _on=localStorage.getItem('ac_push_on')==='1'; setStav(_on?'✅ Notifikace zapnuté':'🔔 Povolit notifikace',_on); return; }
-    localStorage.setItem('ac_person',person);
-    acRenderWho();
     try{
       setStav('🔔 …',false);
       var perm=Notification.permission;
