@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v58";  // drž v souladu s CACHE v sw.js
+const VERZE="v59";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -553,8 +553,6 @@ function openSeznam(s,kl){
    _udNactiVse(function(err,evs,byEvent){
      const el=document.getElementById("slEventy");
      if(err){if(el){el.style.display="block";el.innerHTML='<p class="hint">Chyba načtení událostí.</p>';}return;}
-     // srovnej přehledové počty (dlaždice) s čerstvými daty seznamu – ať se nikdy nerozejdou
-     try{ var _c={},_oc={},_oe=[]; evs.forEach(function(e){ if(e.uzavreno)return; _oe.push(e); var sd=e.stredisko,k=e.kat; if(sd&&k){ _c[sd+"|"+k]=(_c[sd+"|"+k]||0)+1; if(e.objekt) _oc[sd+"|"+k+"|"+e.objekt]=(_oc[sd+"|"+k+"|"+e.objekt]||0)+1; } }); _oe.sort(function(a,b){return (b.ts||0)-(a.ts||0);}); _evCounts=_c; _evObjCounts=_oc; _cachedOpenEvs=_oe; renderPrehled(); }catch(_){}
      const filtered=evs.filter(function(e){return !e.uzavreno&&e.stredisko===s&&e.kat===kl;});
      const objNames={};objs.forEach(function(o){objNames[o.n]=1;});
      const byObj={},orphans=[];
@@ -568,8 +566,8 @@ function openSeznam(s,kl){
        if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin-bottom:8px">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");}
        else{el.style.display="none";el.innerHTML="";}
      }
-     // přepočítej odznaky objektů z čerstvých dat (kvůli zastaralému počtu) + dotáhni rozbalené
-     objs.forEach(function(o,i){const cnt=(byObj[o.n]||[]).length;const bd=document.getElementById("objBdg-"+i),cn=document.getElementById("objCnt-"+i);if(cn)cn.textContent=cnt;if(bd)bd.style.display=cnt>0?"":"none";const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
+     // odznaky objektů: pouze DOPLŇ z čerstvých dat (nikdy nemaž – prázdné/pomalé čtení by nemělo „zhasínat" odznaky) + dotáhni rozbalené
+     objs.forEach(function(o,i){const cnt=(byObj[o.n]||[]).length;if(cnt>0){const bd=document.getElementById("objBdg-"+i),cn=document.getElementById("objCnt-"+i);if(cn)cn.textContent=cnt;if(bd)bd.style.display="";}const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
    });
  }
 }
