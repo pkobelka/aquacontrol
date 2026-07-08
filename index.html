@@ -133,6 +133,7 @@ padding:24px;z-index:50;overflow:auto}
   <img class="kap" src="logo-ac-icon.png" alt="AquaCtrl – VHOS a.s." width="46" height="46">
   <div class="nazev"><span class="a">Aqua</span><span class="c">Ctrl</span></div>
   <nav class="menu">
+    <a onclick="openJakTestovat()">❓ Jak testovat</a>
     <a onclick="openUdalosti()">Aktuální události<span class="bdg" id="bdgUd" style="display:none;background:#e23b3b">0</span></a>
     <a onclick="otevriPlan()">Plán vzorkování 2026</a>
     <a onclick="openMojeUkoly()">Moje úkoly<span class="bdg" id="bdgUk" style="display:none;background:#e8881b">0</span></a>
@@ -232,7 +233,10 @@ const MOHOU_UZAVIRAT=["PŘ","JR","LV","BK","TŘ"];
 function jsemUzaviratel(){return MOHOU_UZAVIRAT.includes(localStorage.getItem("ac_person")||"");}
 // Správce, který schvaluje nová zařízení (Petr Kobelka = TŘ)
 const ADMIN_KOD="TŘ";
-const VERZE="v56";  // drž v souladu s CACHE v sw.js
+// TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
+// Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
+const TEST_AUTO_SCHVALENI=true;
+const VERZE="v57";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -602,6 +606,19 @@ const DOKUMENTY=[
   {f:"dokumenty/MP_06_2021_Zabezpeceni_vody.pdf", t:"MP 06/2021 – Zabezpečení vody", d:"Zabezpečení vody, riziko kontaminace"},
   {f:"dokumenty/MP_07_2021_Opatreni_zhorseni_kvality.pdf", t:"MP 07/2021 – Mimořádné zhoršení kvality", d:"Opatření při mimořádném zhoršení kvality vody"}
 ];
+function openJakTestovat(){
+  zavriPlan();
+  document.getElementById("seznamHead").textContent="Jak otestovat za 2 minuty";
+  var kroky=[
+    ["1","Přihlas se, kdo jsi","Nahoře ťukni na chip 👤 (nebo na 🔔 Povolit notifikace) a vyber své jméno. Během testu se zařízení schválí hned – notifikace fungují bez čekání."],
+    ["2","Založ událost","Vpravo nahoře ＋ Nová událost. Vyber, co se stalo → pracoviště → objekt → ulož. Objeví se v Aktuálních událostech i pod objektem."],
+    ["3","Zadej někomu úkol","U události ťukni ➕ Úkol, vyber řešitele, popis a termín. Komu úkol zadáš, přijde mu push; koho chceš upozornit při nesplnění, přidej do pole Koho upozornit."],
+    ["4","Vyzkoušej příjem","Ten, komu jsi úkol zadal, ho najde v sekci Moje úkoly – potvrdí přijetí a označí splněno. Tobě (zadavateli) dorazí echo push."],
+    ["5","Nahlas, co drhne","Cokoli nesedí nebo je nejasné – napiš. I drobnost pomůže. 🙏"]
+  ];
+  document.getElementById("seznamBody").innerHTML='<p class="hint" style="margin:0 0 12px">Fakt to zabere 2 minuty. Projdi 5 kroků a dej vědět, co nefungovalo.</p>'+kroky.map(function(k){return '<div style="display:flex;gap:12px;align-items:flex-start;border:1px solid #dbe6f1;border-radius:12px;padding:12px;margin-bottom:10px;background:#fbfdff"><div style="flex:none;width:28px;height:28px;border-radius:50%;background:#0b5cae;color:#fff;font-weight:800;display:flex;align-items:center;justify-content:center">'+k[0]+'</div><div><div style="font-weight:800;color:#0b3a66;margin-bottom:2px">'+esc(k[1])+'</div><div style="font-size:13px;color:#42526b;line-height:1.45">'+esc(k[2])+'</div></div></div>';}).join("")+'<div style="text-align:center;margin-top:6px"><button onclick="zavriSeznam();otevri()" style="border:0;border-radius:12px;padding:11px 20px;background:#2faf5a;color:#fff;font-weight:800;cursor:pointer">＋ Začít – založit událost</button></div>';
+  document.getElementById("seznamOv").classList.add("show");
+}
 function openDokumenty(){
   zavriPlan();
   document.getElementById("seznamHead").textContent="Dokumenty – metodické pokyny ("+DOKUMENTY.length+")";
@@ -1547,8 +1564,8 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       var snapEx=await tref.get();
       var jeNovy=!snapEx.exists();
       var rec={token:token,person:person,ts:Date.now(),ua:navigator.userAgent.slice(0,90)};
-      if(snapEx.exists()){ var exv=snapEx.val()||{}; if(exv.schvaleno!==undefined) rec.schvaleno=exv.schvaleno; } // starší token = ponech (legacy povoleno)
-      else { rec.schvaleno=false; } // nové zařízení čeká na schválení
+      if(snapEx.exists()){ var exv=snapEx.val()||{}; if(exv.schvaleno!==undefined) rec.schvaleno=exv.schvaleno; if(TEST_AUTO_SCHVALENI===true && rec.schvaleno===false) rec.schvaleno=true; } // starší token = ponech (v testu i dosud čekající auto-schval)
+      else { rec.schvaleno=(TEST_AUTO_SCHVALENI===true); } // v testu auto-schválení, jinak čeká na schválení
       await tref.set(rec);
       // ne-citlivé zrcadlo pro seznam zařízení v appce (bez tokenu)
       try{ await firebase.database().ref('aquactrl_zarizeni/'+devId()).set({person:person, ua:rec.ua, schvaleno:(rec.schvaleno!==false), ts:rec.ts}); }catch(_){}
@@ -1556,7 +1573,7 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       // Notifikaci zobrazuje jen service worker (firebase-messaging-sw.js) – ruční
       // zobrazení tady by při otevřené kartě vedlo ke zdvojení (SW + tahle stránka).
       msg.onMessage(function(){});
-      if(jeNovy && person!==ADMIN_KOD){ try{ firebase.database().ref('aquactrl_outbox').push({title:'🆕 Nové zařízení', body:(person?lidLbl(person):'Někdo')+' se hlásí ke schválení', targets:[ADMIN_KOD], ts:Date.now()}); }catch(_){} }
+      if(jeNovy && person!==ADMIN_KOD){ try{ firebase.database().ref('aquactrl_outbox').push({title:'🆕 Nové zařízení', body:(person?lidLbl(person):'Někdo')+(rec.schvaleno!==false?' se připojil/a (auto-schváleno)':' se hlásí ke schválení'), targets:[ADMIN_KOD], ts:Date.now()}); }catch(_){} }
       acCheckPending();
       try{ acUkolyWatch(); }catch(_){}
       var pend=(rec.schvaleno===false);
