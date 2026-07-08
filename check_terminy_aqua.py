@@ -38,7 +38,10 @@ def main():
             continue
         if u.get('poterminu_upozorneno'):
             continue
-        targets = u.get('upozornit') or []
+        targets = list(u.get('upozornit') or [])
+        zadal = u.get('zadal')
+        if zadal and zadal not in targets:
+            targets.append(zadal)  # zadavatel dostane avízo vždy (i bez vyplněného pole "upozornit")
         if not targets:
             continue
 
