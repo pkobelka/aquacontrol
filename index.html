@@ -236,8 +236,13 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v70";  // drž v souladu s CACHE v sw.js
-function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
+const VERZE="v71";  // drž v souladu s CACHE v sw.js
+// Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
+// z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
+// Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
+// ochranu vynucují Firebase pravidla (viz SECURITY.md), tohle je jen UI vrstva.
+var _acIsAdmin=false;
+function jsemAdmin(){return _acIsAdmin===true;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
  "GŘ":{funkce:"generální ředitel", mail:"jana.drabkova@vhos.cz", tel:"+420602117919"},
@@ -1567,8 +1572,14 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       }
     }
     auth.onAuthStateChanged(function(user){
-      if(!user){ acLoginOverlay(); return; }
-      firebase.database().ref('aquactrl_login_email/'+_leKeyLogin(user.email)).get().then(function(s){
+      if(!user){ _acIsAdmin=false; acLoginOverlay(); return; }
+      // Admin práva čti z ověřeného Custom Claimu (ne z localStorage). force refresh = true,
+      // aby se čerstvě nastavený claim projevil bez ručního mazání tokenu.
+      user.getIdTokenResult(true).then(function(tr){
+        _acIsAdmin = !!(tr && tr.claims && tr.claims.admin===true);
+      }).catch(function(){ _acIsAdmin=false; }).then(function(){
+        return firebase.database().ref('aquactrl_login_email/'+_leKeyLogin(user.email)).get();
+      }).then(function(s){
         if(s.exists()){
           acLoginClose();
           localStorage.setItem('ac_person', s.val());

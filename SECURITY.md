@@ -1,0 +1,81 @@
+# Zabezpečení AquaCtrl — náprava po bezpečnostním auditu (TNS, 2026-Q3)
+
+Auditor (Trusted Network Solutions) našel **2 nálezy „Vysoká"**. Oba mají jednu
+společnou příčinu: **databáze neměla serverovou ochranu.** Tady je náprava a
+přesný postup, co udělat ve Firebase.
+
+| # | Nález | Náprava |
+|---|-------|---------|
+| 1 | Veřejně přístupné kolekce (`aquactrl_*` čitelné/zapisovatelné bez přihlášení) | Firebase pravidla: přístup jen pro přihlášené (`auth != null`) |
+| 2 | Obejití přihlášení přes `localStorage` (`ac_person` → admin) | Admin práva z ověřeného Custom Claimu + pravidlo `auth.token.admin` + vyztužený kód appky |
+
+> ⚠️ **Databáze je Realtime Database** (`…firebaseio.com`), ne Firestore, jak omylem
+> uvádí report. Syntaxe pravidel je proto jiná (JSON níže).
+>
+> ⚠️ **DB je sdílená s aplikací „budky".** Pravidla jsou **jeden** dokument pro celou
+> databázi. Níže uvedený blok **VLOŽ do stávajících pravidel** (přidej klíče
+> `aquactrl_*`), **NEPŘEPISUJ** celý dokument — jinak rozbiješ budky.
+
+---
+
+## Postup (pořadí je důležité, ať se nezamkneš)
+
+### Krok 1 — Udělej si admina (Custom Claim)
+GitHub → **Actions** → **„Nastavit admina (AquaCtrl)"** → *Run workflow*
+- `email`: e-mail, kterým se **přihlašuješ do appky** (default `petr.kobelka@vhos.cz` — pokud loguješ jiným, zadej ten)
+- `akce`: `set`
+- Spusť. (Běží přes stejný `FIREBASE_SERVICE_ACCOUNT` secret jako ostatní workflow.)
+
+### Krok 2 — Přihlas se v appce znovu
+Odhlas se a znovu přihlas e-mailovým odkazem (nebo appku zavři a otevři).
+Tím si stáhneš token s admin claimem. Po tomhle ti zase naskočí admin menu
+(„Přístup (e-maily)", „Zařízení").
+
+### Krok 3 — Zapni pravidla ve Firebase
+Firebase Console → projekt **moje-budky** → **Realtime Database** → záložka **Rules**.
+Do stávajícího `"rules": { … }` **přidej** tyhle klíče (ostatní nech být) a dej **Publish**:
+
+```json
+{
+  "rules": {
+
+    "aquactrl_udalosti":    { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_ukoly":       { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_absence":     { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_zarizeni":    { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_presence":    { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_push_tokens": { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_outbox":      { ".read": "auth != null", ".write": "auth != null" },
+    "aquactrl_login_email": { ".read": "auth != null", ".write": "auth.token.admin === true" }
+
+  }
+}
+```
+
+Co to dělá:
+- **`aquactrl_login_email`** (řídí, kdo se smí přihlásit) smí **měnit jen admin** → zavírá nález 2 na serveru.
+- Všechny ostatní `aquactrl_*` uzly jsou přístupné **jen přihlášeným** → zavírá nález 1.
+- **Nikoho to nevyhodí:** appka už dnes přihlášení vyžaduje. GitHub Actions skripty i
+  Cloud Functions jedou přes admin SDK, ten pravidla obchází → push, hlídání termínů
+  i „Naplnit e-maily" fungují dál.
+
+### Krok 4 — Ověř nápravu (re-test)
+1. **Anonymní přístup:** v anonymním okně (bez přihlášení) otevři
+   `https://moje-budky-default-rtdb.firebaseio.com/aquactrl_udalosti.json` →
+   musí vrátit `Permission denied` (dřív vracelo data). ✅ nález 1
+2. **Podvržení admina:** přihlas se **jako běžný uživatel**, v F12 dej
+   `localStorage.setItem('ac_person','TŘ')` a obnov stránku → admin menu se
+   **neobjeví** (kód čte claim, ne localStorage). A i kdyby, zápis do
+   `aquactrl_login_email` pravidlo odmítne. ✅ nález 2
+
+---
+
+## Poznámky
+- **Odebrat admina** komukoliv: stejný workflow s `akce: remove`.
+- Appka bere admina z `user.getIdTokenResult()` (viz `jsemAdmin()` v `index.html`).
+  `ac_person` v localStorage zůstává jen jako UX pomůcka (kdo jsem), ne jako
+  bezpečnostní hranice.
+- **Volitelně (doporučeno auditorem):** zapnout **Firebase App Check** (reCAPTCHA),
+  aby k Firebase směla jen tvoje appka. Vyžaduje registraci site key + úpravu kódu —
+  můžeme dodělat samostatně.
+- Report je **TLP:AMBER** → nesdílej ho mimo okruh, kterého se týká.

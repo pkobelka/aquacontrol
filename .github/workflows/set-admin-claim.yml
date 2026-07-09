@@ -1,0 +1,38 @@
+name: Nastavit admina (AquaCtrl)
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'E-mail účtu, kterým se dotyčný přihlašuje do appky'
+        required: true
+        default: 'petr.kobelka@vhos.cz'
+      akce:
+        description: 'set = udělit admina, remove = odebrat, show = jen vypsat'
+        required: true
+        default: 'set'
+        type: choice
+        options:
+          - set
+          - remove
+          - show
+
+jobs:
+  set-admin-claim:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nastav Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instaluj závislosti
+        run: pip install firebase-admin
+
+      - name: Ulož service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account-key.json
+
+      - name: Nastav / odeber admina
+        run: python set_admin_claim.py "${{ github.event.inputs.akce }}" "${{ github.event.inputs.email }}"

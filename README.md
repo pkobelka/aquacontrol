@@ -41,7 +41,16 @@ GitHub → Actions → **Odeslat push (AquaCtrl)** → *Run workflow* (titulek +
 | `.github/workflows/send-push.yml` | ruční spuštění push notifikace |
 | `seed_login_email.py` | naplnění/doplnění seznamu povolených přihlašovacích e-mailů |
 | `.github/workflows/seed-login-email.yml` | ruční spuštění naplnění e-mailů |
+| `set_admin_claim.py` | udělení/odebrání admin práv přes Firebase Custom Claim |
+| `.github/workflows/set-admin-claim.yml` | ruční spuštění nastavení admina |
 | `check_terminy_aquactrl.py` | ruční/záložní kontrola zmeškaných termínů (viz níže – automaticky to dělá Cloud Function) |
+| `SECURITY.md` | náprava po bezpečnostním auditu (Firebase pravidla + admin claim) |
+
+## Zabezpečení (audit)
+
+Náprava po bezpečnostním auditu (Firebase Security Rules pro `aquactrl_*` + admin
+práva přes Custom Claim místo `localStorage`) je popsaná v **[SECURITY.md](SECURITY.md)**
+– včetně přesných pravidel k vložení do Firebase konzole a postupu ověření.
 
 ## Push notifikace a hlídání termínů (Cloud Functions)
 
