@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v61";  // drž v souladu s CACHE v sw.js
+const VERZE="v62";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -371,7 +371,7 @@ function kolizeBlok(){
   auto=`<div style="background:#fde9e9;border:1px solid #f3c2c2;border-radius:10px;padding:10px 12px;color:#c0392b"><div style="font-weight:800;margin-bottom:5px">⚠️ Nebezpečí kolize s plánem vzorkování (${vOkne})</div>${sez}<div style="font-size:12px;margin-top:6px">Odstávka / změna zdroje / chlorace může znehodnotit plánovaný odběr – domluvte přesun vzorkování.</div></div>`;
  }else{
   const p=PLAN[idx[0]];
-  auto=`<div style="background:#fff6e6;border:1px solid #f0d8a8;border-radius:10px;padding:9px 12px;font-size:12.5px;color:#8a5a12">📅 Plán vzorkování: nejbližší odběr <b>${fmtDatumCz(p.datum)}</b> – ${esc(p.misto)} (mimo rizikové okno)</div>`;
+  auto=`<div style="background:#fff6e6;border:1px solid #f0d8a8;border-radius:10px;padding:9px 12px;font-size:12.5px;color:#8a5a12">📅 Plán vzorkování: nejbližší odběr <b>${fmtDatumCz(p.datum)}</b> – ${linkTel(p.misto)} (mimo rizikové okno)</div>`;
  }
  const autoBlok=`<div class="fld" style="margin-bottom:8px">${auto}</div>`;
  const bg=vOkne?"linear-gradient(180deg,#e8881b,#d2730f)":"linear-gradient(180deg,#2f9be0,#1577c8)";
@@ -394,7 +394,7 @@ function kolizeBlok(){
   const sel=st.kolVzorky.includes(i);const zas=scopeSet.has(i);
   html+=`<div onclick="togVzorek(${i})" style="cursor:pointer;display:flex;gap:8px;align-items:center;padding:6px 9px;border:1px solid ${sel?'#e8881b':'#e2e9f1'};border-left:${zas?'4px solid #e8881b':'1px solid '+(sel?'#e8881b':'#e2e9f1')};background:${sel?'#fff6e6':(zas?'#fffaf2':'#fff')};border-radius:9px;margin-bottom:5px;font-size:12.5px">
     <span style="width:18px;height:18px;border-radius:5px;border:2px solid ${sel?'#e8881b':'#b9c6d6'};background:${sel?'#e8881b':'#fff'};color:#fff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;flex:none">${sel?'✓':''}</span>
-    <span>${zas?'📍 ':''}${esc(p.misto)}${p.rozsah?` <span style="color:#6b7a8d">(${esc(p.rozsah)})</span>`:''}</span></div>`;
+    <span>${zas?'📍 ':''}${linkTel(p.misto)}${p.rozsah?` <span style="color:#6b7a8d">(${esc(p.rozsah)})</span>`:''}</span></div>`;
  });
  const oznaceno=st.kolVzorky.length?`<div style="font-weight:700;color:#d2730f;margin:6px 0 2px;font-size:13px">Označeno k přesunu: ${st.kolVzorky.length}</div>`:"";
  return hdr+`<div class="fld" style="margin-top:-4px"><p class="hint" style="margin:2px 0 6px">Zobrazen celý plán od data události. 📍 = dotčené místo (objekt / vodovody). Klikni na odběr → označíš k přesunu. Roluj dolů pro další dny.</p>${oznaceno}<div style="max-height:300px;overflow:auto;border:1px solid #e2e9f1;border-radius:10px;padding:8px;background:#f6fafe">${html}</div></div>`;
@@ -437,7 +437,7 @@ function krok2plan(){
  </div>`;
  h+=`<div class="pl-mes" style="text-align:center">${denTitul(_datum)} · ${list.length} ${list.length===1?'odběr':(list.length>=2&&list.length<=4?'odběry':'odběrů')}</div>`;
  if(list.length){
-  h+=`<div class="fld" style="margin-top:8px"><label>Plánovaný odběr (${list.length})</label><div class="people">`+list.map((p,i)=>`<div class="person ${st.odber&&st.odber.misto===p.misto?'sel':''}" onclick="setOdber(${i})">${esc(p.misto)}${p.rozsah?' · '+esc(p.rozsah):''}</div>`).join("")+`</div></div>`;
+  h+=`<div class="fld" style="margin-top:8px"><label>Plánovaný odběr (${list.length})</label><div class="people">`+list.map((p,i)=>`<div class="person ${st.odber&&st.odber.misto===p.misto?'sel':''}" onclick="setOdber(${i})">${linkTel(p.misto)}${p.rozsah?' · '+esc(p.rozsah):''}</div>`).join("")+`</div></div>`;
  }else{
   h+=`<p class="hint" style="text-align:center;margin-top:12px">Pro tento den nejsou naplánované odběry. Posuň se šipkami nebo vyber jiné datum.</p>`;
  }
@@ -520,7 +520,7 @@ function renderPlan(){
  </div>
  <div style="text-align:center;margin-bottom:12px"><button onclick="planDnes()" ${_planDatum===dnesISO()?'disabled':''} style="border:1px solid #1577c8;border-radius:10px;padding:7px 18px;font-weight:800;cursor:${_planDatum===dnesISO()?'default':'pointer'};color:${_planDatum===dnesISO()?'#9aa7b8':'#1577c8'};background:#fff">📅 Dnes</button></div>
  <div class="pl-mes" style="text-align:center">${denTitul(_planDatum)} · ${den.length} ${den.length===1?'odběr':(den.length>=2&&den.length<=4?'odběry':'odběrů')}</div>`;
- if(den.length){h+=`<p class="hint" style="text-align:center;margin:4px 0 10px">Klik na odběr = založit z něj událost.</p><div class="pl-odbery">`+den.map((p,i)=>`<div class="pl-odber" onclick="zPlanu('${_planDatum}',${i})"><b>${esc(p.misto)}</b>${p.rozsah?`<span> · ${esc(p.rozsah)}</span>`:""}</div>`).join("")+`</div>`;}
+ if(den.length){h+=`<p class="hint" style="text-align:center;margin:4px 0 10px">Klik na odběr = založit z něj událost.</p><div class="pl-odbery">`+den.map((p,i)=>`<div class="pl-odber" onclick="zPlanu('${_planDatum}',${i})"><b>${linkTel(p.misto)}</b>${p.rozsah?`<span> · ${esc(p.rozsah)}</span>`:""}</div>`).join("")+`</div>`;}
  else h+=`<p class="hint" style="text-align:center;margin-top:14px">Pro tento den nejsou naplánované žádné odběry. Posuň se šipkami nebo vyber jiné datum.</p>`;
  document.getElementById("planBody").innerHTML=h;
 }
@@ -1414,6 +1414,16 @@ function hotovoHTML(){
  <div style="margin-top:18px"><button class="b-save" style="border:0;border-radius:12px;padding:10px 22px;color:#fff;font-weight:800;cursor:pointer" onclick="zavri()">Hotovo</button></div></div>`;
 }
 function esc(s){return (s==null?"":String(s)).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+// Escapuje text a z telefonu v závorce udělá klikací tel: odkaz (jen 9místné CZ číslo, příp. s +420).
+// stopPropagation, ať klik na číslo nespustí onclick nadřazeného (klikací chip apod.).
+function linkTel(raw){
+  return esc(raw||"").replace(/\(([^()]*\d[^()]*)\)/g,function(full,inner){
+    var d=inner.replace(/\D/g,"");
+    if(d.length===12&&d.slice(0,3)==="420")d=d.slice(3);
+    if(d.length!==9)return full;
+    return '(<a href="tel:+420'+d+'" onclick="event.stopPropagation()" style="color:#0b5cae;font-weight:700;text-decoration:underline">'+inner.trim()+'</a>)';
+  });
+}
 
 // Otevření „Moje úkoly" při příchodu z push notifikace (#moje-ukoly)
 function _acHashRoute(){ if((location.hash||"").indexOf("moje-ukoly")>=0){ setTimeout(openMojeUkoly,300); } }
