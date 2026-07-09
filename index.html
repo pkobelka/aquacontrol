@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v60";  // drž v souladu s CACHE v sw.js
+const VERZE="v61";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -464,8 +464,9 @@ function acPrehledCounts(){
      evs.push(Object.assign({id:ch.key},e));
      const sd=e.stredisko,k=e.kat; if(sd&&k){ c[sd+"|"+k]=(c[sd+"|"+k]||0)+1; if(e.objekt) oc[sd+"|"+k+"|"+e.objekt]=(oc[sd+"|"+k+"|"+e.objekt]||0)+1; } });
    evs.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
-   _evCounts=c; _evObjCounts=oc; _cachedOpenEvs=evs; renderPrehled();
+   _evCounts=c; _evObjCounts=oc; _cachedOpenEvs=evs; _udNacteno=true; renderPrehled();
    try{ const tot=evs.length; const b=document.getElementById("bdgUd"); if(b){ b.textContent=tot; b.style.display=tot?"":"none"; } }catch(_){}
+   try{ if(document.getElementById("seznamOv").classList.contains("show")&&document.getElementById("seznamHead").textContent==="Aktuální události"){ _renderUdalostiList(); } }catch(_){}
   }).catch(function(){});
  }catch(_){}
 }
@@ -1118,22 +1119,19 @@ function udalostUkol(id){
     }).catch(function(e){alert("Chyba: "+(e&&e.message?e.message:e));});
   });
 }
+let _udNacteno=false;
+function _renderUdalostiList(){
+  var body=document.getElementById("seznamBody"); if(!body)return;
+  if(document.getElementById("seznamHead").textContent!=="Aktuální události")return;
+  body.innerHTML=_cachedOpenEvs.length?_cachedOpenEvs.map(_udalostRadek).join(""):(_udNacteno?'<p class="hint">Žádné otevřené události. 🎉</p>':'<p class="hint">Načítám…</p>');
+}
 function openUdalosti(){
   zavriPlan();
   document.getElementById("seznamHead").textContent="Aktuální události";
-  const body=document.getElementById("seznamBody");
   document.getElementById("seznamOv").classList.add("show");
-  // zobraz hned z cache (je-li), a zároveň vždy dotáhni čerstvá data a překresli
-  body.innerHTML=_cachedOpenEvs.length?_cachedOpenEvs.map(_udalostRadek).join(""):'<p class="hint">Načítám…</p>';
-  if(window.firebase&&firebase.database){
-    _udNactiVse(function(err,evs){
-      if(err){ if(!_cachedOpenEvs.length) body.innerHTML='<p class="hint">Chyba načtení. Zkus to prosím znovu.</p>'; return; }
-      _cachedOpenEvs=evs.filter(function(e){return !e.uzavreno;});
-      if(document.getElementById("seznamOv").classList.contains("show") && document.getElementById("seznamHead").textContent==="Aktuální události"){
-        body.innerHTML=_cachedOpenEvs.length?_cachedOpenEvs.map(_udalostRadek).join(""):'<p class="hint">Žádné otevřené události. 🎉</p>';
-      }
-    });
-  } else if(!_cachedOpenEvs.length){ body.innerHTML='<p class="hint">Databáze není dostupná.</p>'; }
+  // render ze spolehlivé cache (acPrehledCounts); po dotažení čerstvých dat se překreslí
+  _renderUdalostiList();
+  acPrehledCounts();
 }
 function acBadgeStartup(){ try{ if(!(window.firebase&&firebase.database))return; _udNactiVse(function(err,evs,byEvent){ if(!err)acRefreshBadge(evs,byEvent); }); }catch(_){} }
 
