@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v64";  // drž v souladu s CACHE v sw.js
+const VERZE="v65";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -564,11 +564,11 @@ function openSeznam(s,kl){
      _slCtx.loaded=filtered;_slCtx.byObj=byObj;
      // nahoře jen události bez konkrétního objektu (zbytek je rozbalovací u objektů)
      if(el){
-       if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin-bottom:8px">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");}
+       if(orphans.length){el.style.display="block";el.innerHTML=`<div style="font-weight:800;color:#0b3a66;font-size:13px;margin-bottom:8px;border-bottom:2px solid #cfe6f7;padding-bottom:4px">Otevřené události bez objektu (${orphans.length})</div>`+orphans.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin-bottom:8px">'+_safeKarta(x.ev,x.ukoly)+'</div>';}).join("");}
        else{el.style.display="none";el.innerHTML="";}
      }
      // odznaky objektů: pouze DOPLŇ z čerstvých dat (nikdy nemaž – prázdné/pomalé čtení by nemělo „zhasínat" odznaky) + dotáhni rozbalené
-     objs.forEach(function(o,i){const cnt=(byObj[o.n]||[]).length;if(cnt>0){const bd=document.getElementById("objBdg-"+i),cn=document.getElementById("objCnt-"+i);if(cn)cn.textContent=cnt;if(bd)bd.style.display="";}const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");});
+     objs.forEach(function(o,i){const cnt=(byObj[o.n]||[]).length;if(cnt>0){const bd=document.getElementById("objBdg-"+i),cn=document.getElementById("objCnt-"+i);if(cn)cn.textContent=cnt;if(bd)bd.style.display="";}const b=document.getElementById("objEv-"+i);if(b&&b.style.display!=="none"&&byObj[o.n])b.innerHTML=byObj[o.n].map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_safeKarta(x.ev,x.ukoly)+'</div>';}).join("");});
      // DOČASNÁ DIAGNOSTIKA – ukáže počty, ať vidíme, kde to vázne
      try{ var _keys={}; evs.forEach(function(e){ if(!e.uzavreno){ var _kk=(e.stredisko||"?")+"|"+(e.kat||"?"); _keys[_kk]=(_keys[_kk]||0)+1; } }); var _dbg=document.createElement("div"); _dbg.style.cssText="margin-top:10px;padding:8px;border:1px dashed #e23b3b;border-radius:8px;font-size:11px;color:#c0392b;word-break:break-all;font-family:monospace"; _dbg.textContent="🐞 hledám: "+s+" | "+kl+"  •  načteno="+evs.length+"  filtr="+filtered.length+"  orphans="+orphans.length+"  cache="+_cachedOpenEvs.length+"  •  otevřené klíče: "+JSON.stringify(_keys); document.getElementById("seznamBody").appendChild(_dbg); console.log("AC-DIAG",{s:s,kl:kl,evs:evs.length,filtered:filtered.length,orphans:orphans.length,cache:_cachedOpenEvs.length,keys:_keys}); }catch(_){}
    });
@@ -584,7 +584,7 @@ function slToggleObj(i){
   if(box.style.display!=="none"){ box.style.display="none"; box.innerHTML=""; _setObjArrow(i,false); return; }
   box.style.display="block"; _setObjArrow(i,true);
   var renderList=function(list){
-    box.innerHTML=list.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_udalostKarta(x.ev,x.ukoly)+'</div>';}).join("");
+    box.innerHTML=list.map(function(x){return '<div id="udDet-'+x.ev.id+'" style="margin:6px 0">'+_safeKarta(x.ev,x.ukoly)+'</div>';}).join("");
     box.classList.remove("slFlash"); void box.offsetWidth; box.classList.add("slFlash");
     box.scrollIntoView({behavior:"smooth",block:"nearest"});
   };
@@ -984,6 +984,18 @@ function _udProbeh(ev,ukoly){
   return it.map(function(x){return `<div style="display:flex;gap:8px;font-size:12px;color:#33485e;padding:3px 0;border-bottom:1px dashed #eef2f6"><span>${x[1]}</span><span style="color:#9aa7b8;white-space:nowrap">${_fmtCas(x[0])}</span><span>${esc(x[2])}</span></div>`;}).join("");
 }
 function _udTog(id){ const d=document.getElementById('prub-'+id),a=document.getElementById('prubA-'+id); if(!d)return; const show=d.style.display==='none'; d.style.display=show?'block':'none'; if(a)a.textContent=show?'📜 Průběh ▴':'📜 Průběh ▾'; }
+// Bezpečný obal: když _udalostKarta na nějakém poli spadne, nezhroutí celý seznam,
+// ale ukáže náhradní kartu s textem chyby (ať víme, co přesně selhalo).
+function _safeKarta(ev,ukoly){
+  try{ return _udalostKarta(ev,ukoly); }
+  catch(e){
+    var m=(e&&e.message)?e.message:String(e);
+    return '<div style="border:1px solid #f3c2c2;background:#fff5f5;border-radius:12px;padding:12px;margin-bottom:8px">'
+      +'<b style="color:#c0392b">⚠️ Událost nešla zobrazit</b>'
+      +'<div style="font-size:12.5px;color:#0b3a66;margin-top:3px">'+esc((ev&&ev.co)||"Událost")+(ev&&ev.kde?" · "+esc(ev.kde):"")+'</div>'
+      +'<div style="font-size:11px;color:#c0392b;font-family:monospace;margin-top:4px;word-break:break-all">'+esc(m)+'</div></div>';
+  }
+}
 function _udalostKarta(ev,ukoly){
   const zl=(ev.zavaznost&&ZAV[ev.zavaznost])?ZAV[ev.zavaznost]:null;
   const zlB=zl?`<span style="background:${zl[1]};color:#fff;border-radius:7px;padding:1px 8px;font-size:11px;font-weight:800">${zl[0]}</span>`:"";
@@ -1064,7 +1076,7 @@ function acTogDet(id){
     var ukoly=[];
     s.forEach(function(c){var u=c.val()||{};if(u.eventId===id)ukoly.push(Object.assign({id:c.key},u));});
     ukoly.sort(function(a,b){var ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0;if(ad!==bd)return ad-bd;return(a.termin||9e15)-(b.termin||9e15);});
-    el.innerHTML=_udalostKarta(ev,ukoly);
+    el.innerHTML=_safeKarta(ev,ukoly);
   }).catch(function(){el.innerHTML='<p style="font-size:12px;color:#e23b3b;padding:8px 0">Chyba načtení.</p>';});
 }
 // Obnoví otevřený detail události (po přidání poznámky/úkolu) – dotáhne čerstvá data
@@ -1075,7 +1087,7 @@ function _udRefreshDetail(id){
     var ci=_cachedOpenEvs.findIndex(function(e){return e.id===id;}); if(ci>=0)_cachedOpenEvs[ci]=ev;
     var ukoly=[]; res[1].forEach(function(c){var u=c.val()||{};if(u.eventId===id)ukoly.push(Object.assign({id:c.key},u));});
     ukoly.sort(function(a,b){var ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0;if(ad!==bd)return ad-bd;return(a.termin||9e15)-(b.termin||9e15);});
-    el.innerHTML=_udalostKarta(ev,ukoly); acUkolyBadge();
+    el.innerHTML=_safeKarta(ev,ukoly); acUkolyBadge();
   }).catch(function(){});
 }
 // Přidat poznámku k události
