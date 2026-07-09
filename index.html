@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v71";  // drž v souladu s CACHE v sw.js
+const VERZE="v72";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -1517,6 +1517,7 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <script>
 (function(){
   var CFG={apiKey:"AIzaSyBEAhZNxq3REoy1vExIrnNEXlyFXHzP4uI",authDomain:"moje-budky.firebaseapp.com",databaseURL:"https://moje-budky-default-rtdb.firebaseio.com",projectId:"moje-budky",storageBucket:"moje-budky.firebasestorage.app",messagingSenderId:"325649258561",appId:"1:325649258561:web:b5571c3278d98405320ec0"};
@@ -1529,6 +1530,16 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
   function isIOS(){return /iphone|ipad|ipod/i.test(navigator.userAgent);}
 
   try{ firebase.initializeApp(CFG); }catch(e){}
+
+  // ===== App Check (volitelná ochrana z auditu) – pustí k Firebase jen tvoji appku =====
+  // Po registraci reCAPTCHA v3 ve Firebase konzoli (App Check → tvá web app) sem vlož site key.
+  // Dokud je prázdný, App Check je vypnutý a nic nerozbije. Postup viz SECURITY.md.
+  var APPCHECK_SITE_KEY='';  // např. '6LcXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX'
+  try{
+    if(APPCHECK_SITE_KEY && firebase.appCheck){
+      firebase.appCheck().activate(APPCHECK_SITE_KEY, true); // true = automatická obnova tokenu
+    }
+  }catch(e){}
 
   // ===== Přihlášení e-mailovým odkazem (passwordless) – kdo se smí přihlásit, řídí uzel aquactrl_login_email =====
   var LOGIN_URL='https://pkobelka.github.io/aquactrl/';

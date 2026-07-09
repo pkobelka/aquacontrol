@@ -70,12 +70,34 @@ Co to dělá:
 
 ---
 
+## App Check (volitelné doporučení z auditu)
+
+App Check omezuje přístup k Firebase jen na ověřené instance tvojí appky. Kód je
+už připravený (`index.html` → `firebase.appCheck().activate(...)`), jen je **vypnutý**,
+dokud nevložíš site key. **Dokud je `APPCHECK_SITE_KEY` prázdný, nic se neděje.**
+
+> ⚠️ **POZOR — sdílená databáze s „budkami".** App Check *enforcement* se zapíná
+> pro celý produkt (celou Realtime Database), ne per aplikace. Pokud vynutíš App Check
+> na RTDB dřív, než i appka **budky** posílá App Check tokeny, **rozbiješ budky.**
+> Proto níže enforcement nejdřív jen **monitoruj**, ostré vynucení až po instrumentaci budek.
+
+Postup:
+1. **Registruj appku:** Firebase Console → **App Check** → vyber svou web app →
+   provider **reCAPTCHA v3** → vygeneruj/vlož **site key**. Přidej doménu
+   `pkobelka.github.io` do povolených domén reCAPTCHA klíče.
+2. **Vlož klíč do kódu:** v `index.html` nastav `var APPCHECK_SITE_KEY='6Lc…';`
+   (bump `VERZE` + `CACHE` v `sw.js`), commitni a nasaď. Appka začne posílat App Check tokeny.
+3. **Sleduj metriky:** App Check → záložka s produktem **Realtime Database** → nech
+   běžet v režimu **Monitor** (neblokuje), dokud podíl „ověřených requestů" nevyskočí nahoru.
+4. **Vynuť (Enforce)** na RTDB **teprve až** i budky posílají tokeny — jinak budky spadnou.
+   (Vynucení na FCM/ostatní produkty lze zapnout dřív, pokud je jiné appky nepoužívají.)
+
+Bez App Check jsou **oba nálezy „Vysoká" už i tak zavřené** (pravidla + admin claim výše).
+App Check je obrana navíc.
+
 ## Poznámky
 - **Odebrat admina** komukoliv: stejný workflow s `akce: remove`.
 - Appka bere admina z `user.getIdTokenResult()` (viz `jsemAdmin()` v `index.html`).
   `ac_person` v localStorage zůstává jen jako UX pomůcka (kdo jsem), ne jako
   bezpečnostní hranice.
-- **Volitelně (doporučeno auditorem):** zapnout **Firebase App Check** (reCAPTCHA),
-  aby k Firebase směla jen tvoje appka. Vyžaduje registraci site key + úpravu kódu —
-  můžeme dodělat samostatně.
 - Report je **TLP:AMBER** → nesdílej ho mimo okruh, kterého se týká.
