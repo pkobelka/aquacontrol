@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v62";  // drž v souladu s CACHE v sw.js
+const VERZE="v63";  // drž v souladu s CACHE v sw.js
 function jsemAdmin(){return (localStorage.getItem("ac_person")||"")===ADMIN_KOD;}
 // Kontaktní údaje (doplňuje se postupně): kód -> { funkce, mail, tel }
 const KONTAKTY={
@@ -1021,12 +1021,14 @@ function _udalostKarta(ev,ukoly){
 function _udNactiVse(cb){
   const db=firebase.database();
   Promise.all([db.ref("aquactrl_udalosti").get(),db.ref("aquactrl_ukoly").get()]).then(function(res){
-    const evs=[]; res[0].forEach(c=>evs.push(Object.assign({id:c.key},c.val()||{})));
+    let evs=[]; res[0].forEach(c=>evs.push(Object.assign({id:c.key},c.val()||{})));
+    // odolnost: když čtení vrátí prázdno, ale máme spolehlivou cache (z acPrehledCounts), použij ji
+    if(!evs.length && _cachedOpenEvs && _cachedOpenEvs.length){ evs=_cachedOpenEvs.slice(); }
     const byEvent={}; res[1].forEach(c=>{const u=Object.assign({id:c.key},c.val()||{});(byEvent[u.eventId]=byEvent[u.eventId]||[]).push(u);});
     Object.keys(byEvent).forEach(k=>byEvent[k].sort((a,b)=>{const ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0;if(ad!==bd)return ad-bd;return (a.termin||9e15)-(b.termin||9e15);}));
     evs.sort((a,b)=>(b.ts||0)-(a.ts||0));
     cb(null,evs,byEvent);
-  }).catch(function(e){cb(e);});
+  }).catch(function(e){ if(_cachedOpenEvs && _cachedOpenEvs.length){ cb(null,_cachedOpenEvs.slice(),{}); } else { cb(e); } });
 }
 function acRefreshBadge(evs){
   try{ const open=evs.filter(ev=>!ev.uzavreno).length;
@@ -1388,7 +1390,7 @@ function openCistDetail(i){
 function krok(d){
  if(d>0){ // validace
   if(st.krok===1&&!st.podminka)return alert("Vyber, co se stalo.");
-  if(st.krok===2){if(jeZmenaPlanu()){if(!st.odber)return alert("Vyber konkrétní odběr z plánu.");}else if(st.podminka==="Použití cisterny"){if(!st.stredisko)return alert("Vyber pracoviště.");if(!st.cisterny.length)return alert("Vyber aspoň jednu cisternu.");const od=_msFrom(st.cistOd,st.cistCas),doo=_msFrom(st.cistDoDatum,st.cistDoCas);if(!od||!doo)return alert("Vyplň datum i čas Od i Do.");if(doo<=od)return alert("„Do\" musí být po „Od\".");}else{const tp=PODM_TYP[st.podminka];if(tp){if(!st.stredisko||!st.objekt)return alert("Vyber pracoviště a konkrétní "+tp+".");}else{if(!st.stredisko)return alert("Vyber pracoviště (středisko).");if(!st.typ)return alert("Vyber typ objektu.");const _tk=TYP2KEY[st.typ];const _objs=(_tk&&OBJEKTY[st.stredisko]&&OBJEKTY[st.stredisko][_tk])?OBJEKTY[st.stredisko][_tk]:[];if(_objs.length&&!st.objekt)return alert("Vyber konkrétní objekt.");}}}
+  if(st.krok===2){if(jeZmenaPlanu()){if(!st.odber)return alert("Vyber konkrétní odběr z plánu.");}else if(st.podminka==="Použití cisterny"){if(!st.stredisko)return alert("Vyber pracoviště.");if(!st.cisterny.length)return alert("Vyber aspoň jednu cisternu.");const od=_msFrom(st.cistOd,st.cistCas),doo=_msFrom(st.cistDoDatum,st.cistDoCas);if(!od||!doo)return alert("Vyplň datum i čas Od i Do.");if(doo<=od)return alert("„Do\" musí být po „Od\".");}else{const tp=PODM_TYP[st.podminka];if(tp){if(!st.stredisko)return alert("Vyber pracoviště.");}else{if(!st.stredisko)return alert("Vyber pracoviště (středisko).");if(!st.typ)return alert("Vyber typ objektu.");}}}
   if(st.krok===3&&jeZmenaPlanu()&&!st.stredisko)return alert("Vyber pracoviště (středisko).");
   if(st.krok===4){
    if(st.cistAno&&st.cisterny.length){const od=_msFrom(st.cistOd,st.cistCas),doo=_msFrom(st.cistDoDatum,st.cistDoCas);if(!od||!doo)return alert("U cisterny vyplň datum i čas Od i Do.");if(doo<=od)return alert("U cisterny musí být „Do\" po „Od\".");}
