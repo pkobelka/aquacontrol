@@ -18,6 +18,12 @@ přesný postup, co udělat ve Firebase.
 
 ---
 
+> ❗ **Zdroj pravdy pro pravidla = `database.rules.json` v repu [`mojebudky`](https://github.com/pkobelka/mojebudky).**
+> Firebase RTDB je sdílená a workflow „Deploy Firebase" v `mojebudky` při každém nasazení
+> **přepíše** pravidla v konzoli tímhle souborem. Proto se pravidla **musí měnit tam**
+> (ne jen ručně v konzoli, jinak je příští deploy zahodí). Zabezpečené `aquactrl_*` uzly
+> jsou už v tom souboru (commit „database.rules: zabezpečení aquactrl_* uzlů").
+
 ## Postup (pořadí je důležité, ať se nezamkneš)
 
 ### Krok 1 — Udělej si admina (Custom Claim)
