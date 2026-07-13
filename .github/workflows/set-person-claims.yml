@@ -1,0 +1,24 @@
+name: Nastavit identity uživatelů (AquaCtrl)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  set-person-claims:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Nastav Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instaluj závislosti
+        run: pip install firebase-admin
+
+      - name: Ulož service account key
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}' > service-account-key.json
+
+      - name: Nastav person claims všem
+        run: python sync_person_claims.py
