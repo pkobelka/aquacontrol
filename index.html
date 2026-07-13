@@ -236,7 +236,7 @@ const ADMIN_KOD="TŘ";
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v75";  // drž v souladu s CACHE v sw.js
+const VERZE="v76";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -1582,6 +1582,17 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
         }).catch(function(err){ alert('Přihlášení se nepovedlo: '+(err&&err.message?err.message:err)); });
       }
     }
+    // Doplnění identity, když `person` claim dorazí se zpožděním u nového účtu.
+    function _acDoplnClaim(user){
+      try{
+        user.getIdToken(true).then(function(){ return user.getIdTokenResult(); }).then(function(tr){
+          _acIsAdmin = !!(tr && tr.claims && tr.claims.admin===true);
+          var p = (tr && tr.claims && tr.claims.person) ? String(tr.claims.person) : '';
+          if(p){ localStorage.setItem('ac_person', p); }
+          try{ acInitGate(); }catch(_){}
+        }).catch(function(){});
+      }catch(_){}
+    }
     auth.onAuthStateChanged(function(user){
       if(!user){ _acIsAdmin=false; acLoginOverlay(); return; }
       // Identitu (admin i osobu) čti z ověřeného Custom Claimu, ne z localStorage –
@@ -1602,6 +1613,9 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
           localStorage.setItem('ac_person', person);
           try{ acInitGate(); }catch(_){}
           try{ acPresenceStart(person); }catch(_){}
+          // Nový účet: `person` claim může dorazit se zpožděním (funkce aquaSetPersonClaim).
+          // Když ho token ještě nemá, jednou po chvíli obnov token a doplň identitu.
+          if(!_claimPerson){ setTimeout(function(){ _acDoplnClaim(user); }, 4000); }
         } else {
           acLoginOverlay('Tenhle e-mail ('+esc(user.email)+') zatím není povolený. Ozvi se Petru Kobelkovi, ať tě přidá do "Přístup (e-maily)".');
           auth.signOut();
