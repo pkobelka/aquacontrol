@@ -57,7 +57,8 @@ práva přes Custom Claim místo `localStorage`) je popsaná v **[SECURITY.md](S
 Skutečné odesílání push notifikací a **automatické** hlídání termínů úkolů řeší dvě Cloud Functions v repu [`mojebudky`](https://github.com/pkobelka/mojebudky) (`functions/index.js`), sdílený Firebase projekt `moje-budky`:
 
 - **`aquaNotify`** – trigger na vznik záznamu v `aquactrl_outbox`, pošle FCM push.
-- **`aquaUkolyCheck`** – plánovač (každých 15 min): upozorní po termínu, připomene 1 h před termínem, upozorní zadavatele na nepotvrzený úkol.
+- **`aquaUkolyCheck`** – plánovač (každých 15 min): po termínu upozorní zadavatele, řešitele i TŘ (dle pole `upozornit`, které appka od v82 plní automaticky – ruční výběr „koho upozornit" byl zrušen), připomene řešiteli před termínem, upozorní zadavatele na nepotvrzený úkol.
+  - Pozn.: interval připomínky před termínem (dnes 1 h; záměr je zkrátit na ~30 min) je nastavený ve funkci `aquaUkolyCheck` v repu `mojebudky` – mění se tam, ne v tomto repu.
 
 Tenhle repozitář má vlastní `check_terminy_aquactrl.py` / `.github/workflows/check-terminy.yml`, ale ten je záměrně **jen pro ruční/nouzové spuštění** (automatický cron je vypnutý) — aby lidem nechodilo dvojí upozornění na stejnou věc.
 
