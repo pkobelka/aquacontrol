@@ -46,6 +46,32 @@ GitHub → Actions → **Odeslat push (AquaCtrl)** → *Run workflow* (titulek +
 | `check_terminy_aquactrl.py` | ruční/záložní kontrola zmeškaných termínů (viz níže – automaticky to dělá Cloud Function) |
 | `SECURITY.md` | náprava po bezpečnostním auditu (Firebase pravidla + admin claim) |
 
+## Přílohy událostí (hlas / foto / dokument) — Firebase Storage
+
+U nové události (krok *Podrobnosti* → *Přílohy*) lze přidat **mluvený popis**
+(nahrávka z mikrofonu), **foto** a **dokument**. Soubory se při uložení události
+nahrají do **Firebase Storage** (`aquactrl_prilohy/<eventId>/…`) a odkaz se uloží
+do uzlu `aquactrl_udalosti/<eventId>/prilohy`. V kartě události (i u souvisejícího
+úkolu) se pak zobrazí přehrávač hlasu, náhled fotky a odkaz na dokument.
+
+**Jednorázové nastavení ve Firebase** (bez něj se přílohy nenahrají, událost se
+ale uloží normálně):
+1. Firebase Console → projekt **moje-budky** → **Storage** → *Get started*
+   (bucket `moje-budky.firebasestorage.app`).
+2. **Storage → Rules** – povolit `aquactrl_prilohy/**` jen přihlášeným
+   (ostatní cesty, pokud je používají budky, nech beze změny):
+   ```
+   rules_version = '2';
+   service firebase.storage {
+     match /b/{bucket}/o {
+       match /aquactrl_prilohy/{eventId}/{file} {
+         allow read, write: if request.auth != null;
+       }
+       // ... ostatní pravidla (budky) ponech ...
+     }
+   }
+   ```
+
 ## Zabezpečení (audit)
 
 Náprava po bezpečnostním auditu (Firebase Security Rules pro `aquactrl_*` + admin

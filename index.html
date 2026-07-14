@@ -239,7 +239,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v86";  // drž v souladu s CACHE v sw.js
+const VERZE="v87";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -788,7 +788,7 @@ function acPrilRec(){
       var typ=(_prChunks[0]&&_prChunks[0].type)||"audio/webm";
       var blob=new Blob(_prChunks,{type:typ});
       if(!st.prilohy)st.prilohy=[];
-      st.prilohy.push({kind:"audio", name:"Mluvený popis", typ:typ, size:blob.size, url:URL.createObjectURL(blob)});
+      st.prilohy.push({kind:"audio", name:"Mluvený popis", typ:typ, size:blob.size, url:URL.createObjectURL(blob), blob:blob});
       _prRec=false; _prMR=null; acPrilStopStream(); render();
     };
     mr.start(); _prT0=Date.now(); render();
@@ -798,9 +798,11 @@ function acPrilRec(){
 function acPrilFile(inp,kind){
   var f=inp.files&&inp.files[0]; if(!f){ return; }
   if(!st.prilohy)st.prilohy=[];
-  st.prilohy.push({kind:kind, name:f.name||(kind==="foto"?"foto":"soubor"), typ:f.type||"", size:f.size, url:URL.createObjectURL(f)});
+  st.prilohy.push({kind:kind, name:f.name||(kind==="foto"?"foto":"soubor"), typ:f.type||"", size:f.size, url:URL.createObjectURL(f), blob:f});
   inp.value=""; render();
 }
+// přípona pro soubor v úložišti – z názvu, jinak z MIME typu
+function _prPripona(p){ var n=(p&&p.name)||""; var m=n.match(/\.[A-Za-z0-9]{1,6}$/); if(m)return m[0].toLowerCase(); var t=(p&&p.typ)||""; if(/webm/.test(t))return ".webm"; if(/mp4|m4a|aac/.test(t))return ".m4a"; if(/ogg/.test(t))return ".ogg"; if(/png/.test(t))return ".png"; if(/jpe?g/.test(t))return ".jpg"; if(/pdf/.test(t))return ".pdf"; return ""; }
 function acPrilSmaz(i){ var p=st.prilohy&&st.prilohy[i]; if(p&&p.url){try{URL.revokeObjectURL(p.url);}catch(_){}} if(st.prilohy)st.prilohy.splice(i,1); render(); }
 function acPrilohyNahled(){
   if(!st.prilohy||!st.prilohy.length) return '';
@@ -917,6 +919,20 @@ function acSaveEvent(){
         upozornit: autoUpoz(zadalKod, u.resitel), stav: "novy", vznik_ts: now
       });
     });
+    // přílohy → Firebase Storage; odkazy se doplní k události, jak dobíhá nahrávání
+    try{
+      const _pril=st.prilohy||[];
+      if(_pril.length && firebase.storage){
+        _pril.forEach(function(p,i){
+          if(!p||!p.blob) return;
+          const path="aquactrl_prilohy/"+eventId+"/"+now+"_"+i+_prPripona(p);
+          const sref=firebase.storage().ref(path);
+          sref.put(p.blob).then(function(){ return sref.getDownloadURL(); }).then(function(url){
+            db.ref("aquactrl_udalosti/"+eventId+"/prilohy/"+i).set({kind:p.kind, name:p.name||"", typ:p.typ||"", size:p.size||0, path:path, url:url, ts:now});
+          }).catch(function(e){ console.warn("AC upload přílohy:",e); });
+        });
+      }
+    }catch(e){ console.warn("AC přílohy:",e); }
     // push při vzniku (informovaní + řešitelé + upozornit) – beze změny
     const t=acEventText(), tg=acEventTargets();
     db.ref("aquactrl_outbox").push({title:t.title, body:t.body, targets:tg, ts:now});
@@ -1007,7 +1023,8 @@ function ukolTogDet(id){
         (ev.kde?'<div style="font-size:14px;color:#6b7a8d">'+esc(ev.kde)+'</div>':'')+
         (ev.popis?'<div style="font-size:14px;color:#33485e;margin-top:2px">'+esc(ev.popis)+'</div>':'')+
         (ev.nahlasil?'<div style="font-size:13px;color:#9aa7b8;margin-top:2px">nahlásil: '+esc(ev.nahlasil)+(ev.tel?" · "+esc(ev.tel):"")+'</div>':'')+
-        '<div style="font-size:12.5px;color:#9aa7b8;margin-top:2px">zadal událost: '+esc(ev.zadal_jmeno||"—")+' · '+_fmtCas(ev.ts)+'</div></div>';
+        '<div style="font-size:12.5px;color:#9aa7b8;margin-top:2px">zadal událost: '+esc(ev.zadal_jmeno||"—")+' · '+_fmtCas(ev.ts)+'</div>'+
+        _prilohyHTML(ev)+'</div>';
     }).catch(function(){});
   }
 }
@@ -1056,6 +1073,18 @@ function _ukolRadek(u){
     <div style="font-size:12.5px;color:#9aa7b8">${tl.map(esc).join(" → ")}</div></div>`;
 }
 // chronologický průběh události (založení, cisterny, úkoly zadáno/přijato/splněno, uzavření)
+// Zobrazení příloh události (hlas/foto/dokument) – z uzlu ev.prilohy (odkazy do Firebase Storage)
+function _prilohyHTML(ev){
+  var pr=ev&&ev.prilohy; if(!pr)return"";
+  var arr=Array.isArray(pr)?pr.slice():Object.keys(pr).map(function(k){return pr[k];});
+  arr=arr.filter(function(p){return p&&p.url;}); if(!arr.length)return"";
+  var items=arr.map(function(p){
+    if(p.kind==="audio") return '<div style="margin-top:6px"><div style="font-size:13px;color:#6b7a8d">🎤 Mluvený popis</div><audio controls preload="none" src="'+esc(p.url)+'" style="width:100%"></audio></div>';
+    if(p.kind==="foto")  return '<div style="margin-top:6px"><a href="'+esc(p.url)+'" target="_blank" rel="noopener"><img src="'+esc(p.url)+'" loading="lazy" style="max-width:100%;border-radius:8px;border:1px solid #dbe6f1"></a></div>';
+    return '<div style="margin-top:6px;font-size:14px">📎 <a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:#0b5cae;font-weight:700">'+esc(p.name||"dokument")+'</a></div>';
+  }).join("");
+  return '<div style="margin-top:8px"><div style="font-size:13px;font-weight:800;color:#0b3a66">📎 Přílohy</div>'+items+'</div>';
+}
 function _udProbeh(ev,ukoly){
   const it=[];
   if(ev.ts)it.push([ev.ts,"🟦","Událost založena — "+(ev.zadal_jmeno||"?")+(ev.nahlasil?" · nahlásil: "+ev.nahlasil:"")]);
@@ -1120,6 +1149,7 @@ function _udalostKarta(ev,ukoly){
     <div style="font-size:13px;color:#9aa7b8;margin-bottom:2px">zadal: ${esc(ev.zadal_jmeno||"—")} · ${_fmtCas(ev.ts)}</div>
     ${nahl}
     ${cistLine}
+    ${_prilohyHTML(ev)}
     ${ukoly.length?`<div style="margin-top:6px">${ukoly.map(_ukolRadek).join("")}</div>`:""}
     ${akce}
     <div id="prubA-${ev.id}" onclick="_udTog('${ev.id}')" style="cursor:pointer;margin-top:8px;font-size:14px;font-weight:800;color:#0b5cae;user-select:none">📜 Průběh / historie ▴</div>
@@ -1611,6 +1641,7 @@ function hotovoHTML(){
  ${st.cistAno&&st.cisterny.length?`<div class="sumline"><b>Cisterny:</b> ${st.cisterny.map(i=>esc(fmtL(CISTERNY[i].obj)+" · "+CISTERNY[i].typ+" ("+CISTERNY[i].stred+")"+((st.cistMista&&st.cistMista[i])?" → "+st.cistMista[i]:""))).join("; ")}${(function(){const od=_msFrom(st.cistOd,st.cistCas),doo=_msFrom(st.cistDoDatum,st.cistDoCas);if(!od&&!doo)return"";return ` · ${od?_fmtCas(od):"?"} – ${doo?_fmtCas(doo):"?"}`;})()}</div>`:(st.cistAno?`<div class="sumline"><b>Cisterna:</b> ano (cisterna nevybrána)</div>`:"")}
  <div class="sumline"><b>Zadal:</b> ${esc(uzivatelJmeno())}${(jePodnet()&&st.nahlasil)?` · nahlásil: ${esc(st.nahlasil)}${st.tel?(" · "+esc(st.tel)):""}`:""}</div>
  ${st.ukoly.map((u,i)=>(u.resitel||u.popis||u.tdatum||u.tcas)?`<div class="sumline"><b>Úkol ${i+1}:</b> ${u.resitel?esc(lidLbl(u.resitel)):"—"}${u.popis?` – ${esc(u.popis)}`:""}${(u.tdatum||u.tcas)?` · termín ${esc(u.tdatum)} ${esc(u.tcas)}`:""}</div>`:"").join("")}
+ ${(st.prilohy&&st.prilohy.length)?`<div class="sumline"><b>Přílohy:</b> ${st.prilohy.map(p=>esc(p.kind==="audio"?"🎤 mluvený popis":p.kind==="foto"?"📷 foto":"📎 "+(p.name||"dokument"))).join(", ")} <span class="hint">(nahrávají se na pozadí)</span></div>`:""}
  <div class="sumline"><b>Informováni:</b> ${st.info.map(z=>esc(lidLbl(z))).join(", ")||"—"}</div>
  </div>
  <div style="margin-top:18px"><button class="b-save" style="border:0;border-radius:12px;padding:10px 22px;color:#fff;font-weight:800;cursor:pointer" onclick="zavri()">Hotovo</button></div></div>`;
@@ -1647,6 +1678,7 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-check-compat.js"></script>
 <script>
 (function(){
