@@ -239,7 +239,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v82";  // drž v souladu s CACHE v sw.js
+const VERZE="v83";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -1526,17 +1526,22 @@ function openCistUdalost(eventId){
   if(!eventId)return;
   // zavři případné otevřené modaly detailu cisterny
   try{ document.querySelectorAll(".ac-cist-modal").forEach(function(el){ if(el.parentNode)el.parentNode.removeChild(el); }); }catch(_){}
-  openUdalosti();
-  var tries=0;
-  (function expand(){
-    var det=document.getElementById("udDet-"+eventId);
-    if(det){
-      if(det.style.display==="none"||det.style.display===""){ try{ acTogDet(eventId); }catch(_){} }
-      try{ (det.parentNode||det).scrollIntoView({behavior:"smooth",block:"start"}); }catch(_){}
-      return;
-    }
-    if(tries++<25) setTimeout(expand,150);  // počkej, než acPrehledCounts dotáhne cache událostí
-  })();
+  try{ zavriPlan(); }catch(_){}
+  document.getElementById("seznamHead").textContent="Událost k cisterně";
+  var body=document.getElementById("seznamBody");
+  document.getElementById("seznamOv").classList.add("show");
+  if(!(window.firebase&&firebase.database)){ body.innerHTML='<p class="hint">Databáze není dostupná.</p>'; return; }
+  body.innerHTML='<p class="hint">Načítám…</p>';
+  var db=firebase.database();
+  Promise.all([db.ref("aquactrl_udalosti/"+eventId).get(), db.ref("aquactrl_ukoly").get()]).then(function(res){
+    var ev=res[0].val();
+    if(!ev){ body.innerHTML='<div style="margin-bottom:10px"><a onclick="openCisterny()" style="color:#0b5cae;cursor:pointer;font-weight:700">← Zpět na cisterny</a></div><p class="hint">Událost už není dostupná (možná byla uzavřena).</p>'; return; }
+    ev=Object.assign({id:eventId},ev);
+    var ukoly=[]; res[1].forEach(function(c){ var u=c.val()||{}; if(u.eventId===eventId) ukoly.push(Object.assign({id:c.key},u)); });
+    ukoly.sort(function(a,b){ var ad=a.stav==="splneny"?1:0,bd=b.stav==="splneny"?1:0; if(ad!==bd)return ad-bd; return (a.termin||9e15)-(b.termin||9e15); });
+    body.innerHTML='<div style="margin-bottom:10px"><a onclick="openCisterny()" style="color:#0b5cae;cursor:pointer;font-weight:700">← Zpět na cisterny</a></div>'
+      +'<div id="udDet-'+eventId+'">'+_safeKarta(ev,ukoly)+'</div>';
+  }).catch(function(e){ body.innerHTML='<p class="hint">Chyba: '+esc(e&&e.message?e.message:e)+'</p>'; });
 }
 
 function krok(d){
