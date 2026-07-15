@@ -239,7 +239,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v91";  // drž v souladu s CACHE v sw.js
+const VERZE="v92";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -852,7 +852,85 @@ function acPrilohyNahled(){
     var meta='<div style="font-size:12px;color:#9aa7b8;margin-top:2px">'+((p.kind!=="dok")?esc(p.name)+' · ':'')+(p.typ?esc(p.typ)+' · ':'')+'~'+Math.round((p.size||0)/1024)+' kB</div>';
     return '<div style="border:1px solid #dbe6f1;border-radius:10px;padding:8px;background:#fff">'+head+body+meta+'</div>';
   }).join("");
-  return '<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">'+items+'</div><p class="hint" style="margin:6px 0 0">Náhled – přílohy se zatím <b>neukládají</b> (uložení do úložiště přidáme v další fázi).</p>';
+  return '<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">'+items+'</div><p class="hint" style="margin:6px 0 0">Náhled – přílohy se nahrají při uložení události.</p>';
+}
+// ===== Přidání přílohy k JIŽ ZALOŽENÉ události (tlačítko „📎 Příloha" na kartě) =====
+// Znovupoužitelné okno pro sběr příloh (hlas/foto/dokument) – po potvrzení zavolá onConfirm(list).
+function openPrilohaModal(onConfirm){
+  var pr=[]; var rec=false, mr=null, stream=null, chunks=[], t0=0, timer=null;
+  function stopStream(){ if(timer){clearInterval(timer);timer=null;} if(stream){try{stream.getTracks().forEach(function(t){t.stop();});}catch(_){} stream=null;} }
+  var ov=document.createElement("div");
+  ov.className="ac-pril-modal";
+  ov.style.cssText="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;padding:16px";
+  function nahled(){
+    if(!pr.length) return '';
+    return '<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px">'+pr.map(function(p,i){
+      var nad=p.kind==="audio"?"🎤 Mluvený popis":p.kind==="foto"?"📷 Foto":"📎 Dokument";
+      var head='<div style="display:flex;justify-content:space-between;align-items:center"><b style="color:#0b3a66;font-size:14px">'+nad+'</b><button type="button" data-del="'+i+'" style="border:0;background:none;color:#c0392b;font-weight:800;cursor:pointer;font-size:15px">✕</button></div>';
+      var body=p.kind==="audio"?'<audio controls src="'+p.url+'" style="width:100%"></audio>':p.kind==="foto"?'<img src="'+p.url+'" style="max-width:100%;border-radius:8px;border:1px solid #dbe6f1">':'<div style="font-size:14px;color:#33485e">'+esc(p.name)+'</div>';
+      return '<div style="border:1px solid #dbe6f1;border-radius:10px;padding:8px;background:#fbfdff">'+head+body+'</div>';
+    }).join("")+'</div>';
+  }
+  function render(){
+    ov.innerHTML='<div style="background:#fff;border-radius:14px;max-width:480px;width:100%;padding:18px;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:88vh;overflow:auto">'
+      +'<h3 style="margin:0 0 10px;color:#0b3a66">Přidat přílohu</h3>'
+      +'<div class="attach"><button type="button" id="prmRec">'+(rec?'■ Zastavit nahrávání':'🎤 Mluvený popis')+'</button>'
+      +'<button type="button" id="prmFotoB">📷 Foto</button><input id="prmFoto" type="file" accept="image/*" capture="environment" style="display:none">'
+      +'<button type="button" id="prmDokB">📎 Dokument</button><input id="prmDok" type="file" style="display:none"></div>'
+      +(rec?'<div id="prmStav" style="font-size:13px;color:#e23b3b;margin-top:6px">● nahrávám…</div>':'')
+      +nahled()
+      +'<div style="display:flex;gap:8px;margin-top:12px"><button type="button" id="prmCancel" style="flex:1;padding:10px;border:1px solid #ccc;background:#f3f3f3;border-radius:8px;cursor:pointer">Zrušit</button>'
+      +'<button type="button" id="prmOk" style="flex:1;padding:10px;border:0;background:#0b5cae;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">Přidat'+(pr.length?' ('+pr.length+')':'')+'</button></div></div>';
+    ov.querySelector("#prmRec").onclick=toggleRec;
+    ov.querySelector("#prmFotoB").onclick=function(){ ov.querySelector("#prmFoto").click(); };
+    ov.querySelector("#prmDokB").onclick=function(){ ov.querySelector("#prmDok").click(); };
+    ov.querySelector("#prmFoto").onchange=function(){ addFile(this,"foto"); };
+    ov.querySelector("#prmDok").onchange=function(){ addFile(this,"dok"); };
+    Array.prototype.forEach.call(ov.querySelectorAll("[data-del]"),function(b){ b.onclick=function(){ var i=+b.getAttribute("data-del"); var p=pr[i]; if(p&&p.url){try{URL.revokeObjectURL(p.url);}catch(_){}} pr.splice(i,1); render(); }; });
+    ov.querySelector("#prmCancel").onclick=close;
+    ov.querySelector("#prmOk").onclick=potvrd;
+  }
+  function addFile(inp,kind){ var f=inp.files&&inp.files[0]; if(!f)return; pr.push({kind:kind,name:f.name||(kind==="foto"?"foto":"soubor"),typ:f.type||"",size:f.size,url:URL.createObjectURL(f),blob:f}); inp.value=""; render(); }
+  function toggleRec(){
+    if(rec&&mr){ try{mr.stop();}catch(_){} return; }
+    if(!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia&&window.MediaRecorder)){ alert("Tenhle prohlížeč neumí nahrávání zvuku."); return; }
+    navigator.mediaDevices.getUserMedia({audio:true}).then(function(s){
+      stream=s; chunks=[];
+      try{ mr=new MediaRecorder(s); }catch(e){ try{ mr=new MediaRecorder(s,{mimeType:"audio/webm"}); }catch(e2){ alert("Nahrávání není podporováno."); stopStream(); return; } }
+      mr.ondataavailable=function(e){ if(e.data&&e.data.size)chunks.push(e.data); };
+      mr.onstop=function(){ var typ=(chunks[0]&&chunks[0].type)||"audio/webm"; var blob=new Blob(chunks,{type:typ}); pr.push({kind:"audio",name:"Mluvený popis",typ:typ,size:blob.size,url:URL.createObjectURL(blob),blob:blob}); rec=false; mr=null; stopStream(); render(); };
+      mr.start(); t0=Date.now(); rec=true; render();
+      timer=setInterval(function(){ var el=ov.querySelector("#prmStav"); if(el){ var sec=Math.floor((Date.now()-t0)/1000); el.textContent="● nahrávám… "+Math.floor(sec/60)+":"+("0"+(sec%60)).slice(-2)+"  (znovu ťukni pro stop)"; } },250);
+    }).catch(function(e){ alert("Nepodařilo se získat mikrofon: "+(e&&e.message?e.message:e)+"\n\nPovol prosím oprávnění mikrofonu."); });
+  }
+  function close(){ try{ if(rec&&mr){mr.stop();} rec=false; mr=null; stopStream(); }catch(_){} if(ov.parentNode)document.body.removeChild(ov); }
+  function potvrd(){ if(rec&&mr){ try{mr.stop();}catch(_){} setTimeout(finish,350); return; } finish(); }
+  function finish(){ var list=pr.slice(); close(); if(typeof onConfirm==="function") onConfirm(list); }
+  render();
+  ov.addEventListener("click",function(e){ if(e.target===ov) close(); });
+  document.body.appendChild(ov);
+}
+// Nahraje vybrané přílohy do Storage a připne je k události (aquactrl_udalosti/<id>/prilohy)
+function pridatPrilohuUdalost(eventId){
+  if(!(window.firebase&&firebase.database)){ alert("Databáze není dostupná."); return; }
+  openPrilohaModal(function(list){
+    if(!list||!list.length) return;
+    if(!firebase.storage){ alert("Úložiště není dostupné."); return; }
+    var db=firebase.database(), now=Date.now();
+    list.forEach(function(p,i){
+      if(!p||!p.blob) return;
+      var prep=(p.kind==="foto")?_prZmensiFoto(p.blob,1600,0.82):Promise.resolve(p.blob);
+      prep.then(function(blob){
+        var foto=(p.kind==="foto");
+        var path="aquactrl_prilohy/"+eventId+"/"+now+"_add"+i+(foto?".jpg":_prPripona(p));
+        var sref=firebase.storage().ref(path);
+        var meta=foto?{contentType:"image/jpeg"}:(p.typ?{contentType:p.typ}:undefined);
+        return sref.put(blob,meta).then(function(){ return sref.getDownloadURL(); }).then(function(url){
+          return db.ref("aquactrl_udalosti/"+eventId+"/prilohy").push({kind:p.kind, name:p.name||"", typ:foto?"image/jpeg":(p.typ||""), size:(blob&&blob.size)||p.size||0, path:path, url:url, ts:now});
+        }).then(function(){ try{_udRefreshDetail(eventId);}catch(_){} });
+      }).catch(function(e){ console.warn("AC add příloha:",e); });
+    });
+  });
 }
 
 // vedení zůstává jako kód (GŘ/TŘ/PŘ), ostatní se zobrazují plným jménem
@@ -1176,7 +1254,7 @@ function _udalostKarta(ev,ukoly){
   { const arr=_cistArr(ev); if(arr.length){ const c0=arr[0];
     cistLine=`<div style="font-size:14px;color:#33485e;margin-top:2px">🚚 ${arr.map(c=>esc(fmtL(c.obj)+" · "+(c.typ||""))).join(", ")}${c0.misto?` → ${esc(c0.misto)}`:""}${(c0.od||c0.do)?` · ${c0.od?_fmtCas(c0.od):"?"}–${c0.do?_fmtCas(c0.do):"?"}`:""}${!ev.uzavreno?` <a onclick="upravCisternu('${ev.id}')" style="color:#0b5cae;cursor:pointer;font-weight:700">✏️ upravit</a>`:""}</div>`; } }
   const _canEd=_muzuUpravitUd(ev);
-  const akce=ev.uzavreno?"":'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="udalostUkol(\''+ev.id+'\')" style="border:0;border-radius:10px;padding:7px 12px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">➕ Úkol</button><button onclick="udalostPoznamka(\''+ev.id+'\')" style="border:1px solid #1577c8;border-radius:10px;padding:7px 12px;background:#fff;color:#1577c8;font-weight:800;cursor:pointer">➕ Poznámka</button>'+(_canEd?'<button onclick="upravUdalost(\''+ev.id+'\')" style="border:1px solid #7a5ea8;border-radius:10px;padding:7px 12px;background:#fff;color:#7a5ea8;font-weight:800;cursor:pointer">✏️ Upravit</button>':'')+'</div>';
+  const akce=ev.uzavreno?"":'<div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap"><button onclick="udalostUkol(\''+ev.id+'\')" style="border:0;border-radius:10px;padding:7px 12px;background:#1577c8;color:#fff;font-weight:800;cursor:pointer">➕ Úkol</button><button onclick="udalostPoznamka(\''+ev.id+'\')" style="border:1px solid #1577c8;border-radius:10px;padding:7px 12px;background:#fff;color:#1577c8;font-weight:800;cursor:pointer">➕ Poznámka</button><button onclick="pridatPrilohuUdalost(\''+ev.id+'\')" style="border:1px solid #2faf5a;border-radius:10px;padding:7px 12px;background:#fff;color:#2faf5a;font-weight:800;cursor:pointer">📎 Příloha</button>'+(_canEd?'<button onclick="upravUdalost(\''+ev.id+'\')" style="border:1px solid #7a5ea8;border-radius:10px;padding:7px 12px;background:#fff;color:#7a5ea8;font-weight:800;cursor:pointer">✏️ Upravit</button>':'')+'</div>';
   let footer;
   if(ev.uzavreno){
     footer=`<div style="margin-top:8px;font-size:14px;color:#2faf5a;font-weight:700">🔒 Uzavřeno — ${esc(ev.uzavrel_jmeno||"")} · ${_fmtCas(ev.uzavreno_ts)}${ev.uzavreno_pozn?` · ${esc(ev.uzavreno_pozn)}`:""}</div>`;
