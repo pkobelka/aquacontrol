@@ -135,7 +135,7 @@ padding:24px;z-index:50;overflow:auto}
   <nav class="menu">
     <a onclick="openJakTestovat()">❓ Jak testovat</a>
     <a onclick="openUdalosti()">Aktuální události<span class="bdg" id="bdgUd" style="display:none;background:#e23b3b">0</span></a>
-    <a onclick="otevriPlan()">Plán vzorkování 2026</a>
+    <a onclick="otevriPlan()">Plán vzorkování 2026<span class="bdg" id="bdgPlan" title="události z plánu" style="display:none;background:#e23b3b">0</span></a>
     <a onclick="openMojeUkoly()">Moje úkoly<span class="bdg" id="bdgUk" style="display:none;background:#e8881b">0</span></a>
     <a onclick="openCisterny()">Cisterny<span class="bdg" id="bdgCist" title="v akci" style="display:none;background:#e23b3b">0</span><span class="bdg" id="bdgCistRez" title="rezervace" style="display:none;background:#e8881b">0</span></a>
     <a onclick="openKontakty()">Kontakty</a>
@@ -239,7 +239,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v88";  // drž v souladu s CACHE v sw.js
+const VERZE="v89";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -428,6 +428,8 @@ function cisternaBlok(){
  return `<div class="fld"><label>Náhradní zásobování cisternou</label>${toggle}</div>${ano?cisternaDetail():""}`;
 }
 function jeZmenaPlanu(){return !!(st.podminka&&st.podminka.indexOf("plánu")>=0);}
+// Událost pochází z Plánu vzorkování? (příznak plan, u starších podle názvu „…plánu…")
+function _jePlanEv(e){ return !!(e && (e.plan===true || (e.co && String(e.co).indexOf("plánu")>=0))); }
 function selDatum(d){if(d)_datum=d;st.odber=null;render();}
 function selDatumNav(dir){const d=planDaty();const cand=dir>0?d.find(x=>x>_datum):[...d].reverse().find(x=>x<_datum);if(cand){_datum=cand;st.odber=null;render();}}
 function setOdber(i){st.odber=PLAN.filter(p=>p.datum===_datum)[i];render();}
@@ -466,12 +468,14 @@ function renderPrehled(){
 function acPrehledCounts(){
  try{ if(!(window.firebase&&firebase.database))return;
   firebase.database().ref("aquactrl_udalosti").get().then(function(s){
-   const c={}, oc={}, evs=[];
+   const c={}, oc={}, evs=[]; let planCnt=0;
    s.forEach(function(ch){ const e=ch.val()||{}; if(e.uzavreno)return;
      evs.push(Object.assign({id:ch.key},e));
+     if(_jePlanEv(e)){ planCnt++; return; } // události z plánu se počítají u „Plánu", ne do mřížky (jinak by spadly do „Ostatní")
      const sd=e.stredisko,k=e.kat; if(sd&&k){ c[sd+"|"+k]=(c[sd+"|"+k]||0)+1; if(e.objekt) oc[sd+"|"+k+"|"+e.objekt]=(oc[sd+"|"+k+"|"+e.objekt]||0)+1; } });
    evs.sort(function(a,b){return (b.ts||0)-(a.ts||0);});
    _evCounts=c; _evObjCounts=oc; _cachedOpenEvs=evs; _udNacteno=true; renderPrehled();
+   try{ const bp=document.getElementById("bdgPlan"); if(bp){ bp.textContent=planCnt; bp.style.display=planCnt?"":"none"; } }catch(_){}
    try{ const tot=evs.length; const b=document.getElementById("bdgUd"); if(b){ b.textContent=tot; b.style.display=tot?"":"none"; } }catch(_){}
    try{ if(document.getElementById("seznamOv").classList.contains("show")&&document.getElementById("seznamHead").textContent==="Aktuální události"){ _renderUdalostiList(); } }catch(_){}
   }).catch(function(){});
@@ -926,6 +930,7 @@ function acSaveEvent(){
       stredisko: st.stredisko||"", objekt: st.objekt||"", objektStred: st.objektStred||"", adresa: st.adresa||"",
       zavaznost: st.zavaznost||"", popis: st.popis||"", dotcene: st.dotcene||[],
       nahlasil: st.nahlasil||"", tel: st.tel||"", cist: cistData, info: st.info||[],
+      plan: jeZmenaPlanu(), plan_datum: (jeZmenaPlanu()&&st.odber)?st.odber.datum:"", plan_misto: (jeZmenaPlanu()&&st.odber)?st.odber.misto:"",
       zadal: zadalKod, zadal_jmeno: uzivatelJmeno(), ts: now
     });
     // úkoly (jen ty s řešitelem nebo popisem)
@@ -1109,11 +1114,13 @@ function _prilohyHTML(ev){
   arr=arr.filter(function(p){return p&&p.url;}); if(!arr.length)return"";
   var items=arr.map(function(p){
     if(p.kind==="audio") return '<div style="margin-top:6px"><div style="font-size:13px;color:#6b7a8d">🎤 Mluvený popis</div><audio controls preload="none" src="'+esc(p.url)+'" style="width:100%"></audio></div>';
-    if(p.kind==="foto")  return '<div style="margin-top:6px"><a href="'+esc(p.url)+'" target="_blank" rel="noopener"><img src="'+esc(p.url)+'" loading="lazy" style="max-width:100%;border-radius:8px;border:1px solid #dbe6f1"></a></div>';
+    if(p.kind==="foto")  return '<div style="margin-top:6px"><a href="javascript:void(0)" data-url="'+esc(p.url)+'" onclick="_prShowFoto(this)" style="display:inline-block;color:#0b5cae;font-weight:700;cursor:pointer;text-decoration:underline">📷 Zobrazit foto</a></div>';
     return '<div style="margin-top:6px;font-size:14px">📎 <a href="'+esc(p.url)+'" target="_blank" rel="noopener" style="color:#0b5cae;font-weight:700">'+esc(p.name||"dokument")+'</a></div>';
   }).join("");
   return '<div style="margin-top:8px"><div style="font-size:13px;font-weight:800;color:#0b3a66">📎 Přílohy</div>'+items+'</div>';
 }
+// Foto se v kartě události zobrazí až po kliknutí (nenačítá se automaticky)
+function _prShowFoto(el){ try{ var u=el.getAttribute("data-url")||""; el.outerHTML='<a href="'+esc(u)+'" target="_blank" rel="noopener"><img src="'+esc(u)+'" style="max-width:100%;border-radius:8px;border:1px solid #dbe6f1"></a>'; }catch(_){} }
 function _udProbeh(ev,ukoly){
   const it=[];
   if(ev.ts)it.push([ev.ts,"🟦","Událost založena — "+(ev.zadal_jmeno||"?")+(ev.nahlasil?" · nahlásil: "+ev.nahlasil:"")]);
@@ -1174,6 +1181,7 @@ function _udalostKarta(ev,ukoly){
     <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;margin-bottom:4px">
       <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">${zlB}<b style="color:#0b3a66">${esc(ev.co||"Událost")}</b></div>${stavTag}</div>
     ${ev.kde?`<div style="font-size:14.5px;color:#6b7a8d">${esc(ev.kde)}</div>`:""}
+    ${_jePlanEv(ev)?`<div style="font-size:14px;color:#8a5a12;background:#fff6e6;border:1px solid #f0d8a8;border-radius:8px;padding:4px 8px;margin:3px 0">📅 Z plánu vzorkování${(ev.plan_datum||ev.plan_misto)?`: ${esc([ev.plan_datum?fmtDatumCz(ev.plan_datum):"",ev.plan_misto].filter(Boolean).join(" · "))}`:""}</div>`:""}
     ${ev.popis?`<div style="font-size:14.5px;color:#33485e;margin:2px 0">${esc(ev.popis)}</div>`:""}
     <div style="font-size:13px;color:#9aa7b8;margin-bottom:2px">zadal: ${esc(ev.zadal_jmeno||"—")} · ${_fmtCas(ev.ts)}</div>
     ${nahl}
