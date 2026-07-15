@@ -239,7 +239,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v90";  // drž v souladu s CACHE v sw.js
+const VERZE="v91";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -478,6 +478,7 @@ function acPrehledCounts(){
    try{ const bp=document.getElementById("bdgPlan"); if(bp){ bp.textContent=planCnt; bp.style.display=planCnt?"":"none"; } }catch(_){}
    try{ const tot=evs.length; const b=document.getElementById("bdgUd"); if(b){ b.textContent=tot; b.style.display=tot?"":"none"; } }catch(_){}
    try{ if(document.getElementById("seznamOv").classList.contains("show")&&document.getElementById("seznamHead").textContent==="Aktuální události"){ _renderUdalostiList(); } }catch(_){}
+   try{ if(document.getElementById("planOv").classList.contains("show")){ renderPlan(); } }catch(_){}
   }).catch(function(){});
  }catch(_){}
 }
@@ -514,7 +515,7 @@ function render(){
 let _planDatum=null;
 function planDaty(){return [...new Set(PLAN.map(p=>p.datum))].sort();}
 function denTitul(iso){const dny=["Neděle","Pondělí","Úterý","Středa","Čtvrtek","Pátek","Sobota"];return dny[new Date(iso+"T00:00:00").getDay()]+" "+fmtDatumCz(iso);}
-function otevriPlan(){_planDatum=dnesISO();document.getElementById("planOv").classList.add("show");renderPlan();}
+function otevriPlan(){_planDatum=dnesISO();document.getElementById("planOv").classList.add("show");renderPlan();try{acPrehledCounts();}catch(_){}}
 function zavriPlan(){document.getElementById("planOv").classList.remove("show");}
 function setPlanDatum(v){if(v)_planDatum=v;renderPlan();}
 function planNav(dir){const d=planDaty();const cand=dir>0?d.find(x=>x>_planDatum):[...d].reverse().find(x=>x<_planDatum);if(cand){_planDatum=cand;renderPlan();}}
@@ -533,6 +534,14 @@ function renderPlan(){
  <div class="pl-mes" style="text-align:center">${denTitul(_planDatum)} · ${den.length} ${den.length===1?'odběr':(den.length>=2&&den.length<=4?'odběry':'odběrů')}</div>`;
  if(den.length){h+=`<p class="hint" style="text-align:center;margin:4px 0 10px">Klik na odběr = založit z něj událost.</p><div class="pl-odbery">`+den.map((p,i)=>`<div class="pl-odber" onclick="zPlanu('${_planDatum}',${i})"><b>${linkTel(p.misto)}</b>${p.rozsah?`<span> · ${esc(p.rozsah)}</span>`:""}</div>`).join("")+`</div>`;}
  else h+=`<p class="hint" style="text-align:center;margin-top:14px">Pro tento den nejsou naplánované žádné odběry. Posuň se šipkami nebo vyber jiné datum.</p>`;
+ // Otevřené události založené z plánu (nezávisle na vybraném datu) – klik rozbalí celou událost
+ const planEvs=(_cachedOpenEvs||[]).filter(_jePlanEv);
+ if(planEvs.length){
+   h+=`<div style="margin-top:18px;border-top:1px solid #e6edf4;padding-top:10px">
+     <div style="font-weight:800;color:#0b3a66;margin-bottom:2px">📋 Události z plánu (${planEvs.length})</div>
+     <p class="hint" style="margin:0 0 6px">Klik na událost = rozbalit detail.</p>
+     ${planEvs.map(_udalostRadek).join("")}</div>`;
+ }
  document.getElementById("planBody").innerHTML=h;
 }
 function zPlanu(d,i){const list=PLAN.filter(p=>p.datum===d);otevri();st.podminka="Změna v plánu kontroly jakosti PV";st.zavaznost="nizka";_datum=d;st.odber=list[i];st.krok=3;zavriPlan();render();}
