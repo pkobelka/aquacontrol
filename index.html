@@ -238,7 +238,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v101";  // drž v souladu s CACHE v sw.js
+const VERZE="v102";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -1872,6 +1872,13 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       +'<input id="acLoginEmail" type="email" placeholder="tvuj@email.cz" style="width:100%;padding:10px;font-size:17px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box">'
       +'<button id="acLoginSend" style="margin-top:12px;width:100%;padding:11px;border:0;background:#0b5cae;color:#fff;border-radius:8px;font-weight:700;cursor:pointer">Poslat přihlašovací odkaz</button>'
       +'<div id="acLoginMsg" style="margin-top:10px;font-size:14.5px;color:#6b7a8d"></div>'
+      +'<div style="margin-top:14px;border-top:1px solid #eef2f6;padding-top:12px">'
+      +'<a id="acIosTog" style="font-size:13px;color:#0b5cae;font-weight:700;cursor:pointer;text-decoration:underline">📱 iPhone – appka na ploše? Odkaz se nepřihlásí sám →</a>'
+      +'<div id="acIosBox" style="display:none;margin-top:8px">'
+      +'<div style="font-size:13px;color:#6b7a8d;margin-bottom:6px">Na iPhonu se odkaz otevře v Safari, ne v appce. Proto v e-mailu <b>podrž prst na odkazu → Kopírovat</b> (neotvírej ho) a vlož sem. Nahoře musí být vyplněný stejný e-mail.</div>'
+      +'<input id="acLoginLink" type="text" placeholder="Vlož zkopírovaný odkaz z e-mailu" style="width:100%;padding:9px;font-size:14px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box">'
+      +'<button id="acLoginPaste" style="margin-top:8px;width:100%;padding:10px;border:1px solid #0b5cae;background:#fff;color:#0b5cae;border-radius:8px;font-weight:700;cursor:pointer">Přihlásit vloženým odkazem</button>'
+      +'</div></div>'
       +'</div>';
     document.body.appendChild(ov);
     ov.querySelector('#acLoginSend').onclick=function(){
@@ -1881,8 +1888,19 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
       out.textContent='Odesílám…';
       firebase.auth().sendSignInLinkToEmail(email,{url:LOGIN_URL,handleCodeInApp:true}).then(function(){
         localStorage.setItem('ac_emailForSignIn',email);
-        out.textContent='✅ Odkaz poslán na '+email+'. Zkontroluj schránku (i spam) a otevři odkaz na tomhle zařízení.';
+        out.textContent='✅ Odkaz poslán na '+email+'. Zkontroluj schránku (i spam) a otevři odkaz na tomhle zařízení. (iPhone s appkou na ploše: viz „📱 iPhone" níže.)';
       }).catch(function(err){ out.textContent='⚠️ Chyba: '+(err&&err.message?err.message:err); });
+    };
+    ov.querySelector('#acIosTog').onclick=function(){ var b=ov.querySelector('#acIosBox'); b.style.display=(b.style.display==='none')?'block':'none'; };
+    ov.querySelector('#acLoginPaste').onclick=function(){
+      var link=(ov.querySelector('#acLoginLink').value||'').trim();
+      var email=(ov.querySelector('#acLoginEmail').value||'').trim()||localStorage.getItem('ac_emailForSignIn')||'';
+      var out=ov.querySelector('#acLoginMsg');
+      if(!link){ out.textContent='Vlož odkaz z e-mailu.'; return; }
+      if(!firebase.auth().isSignInWithEmailLink(link)){ out.textContent='Tohle nevypadá jako přihlašovací odkaz – zkopíruj z e-mailu celý (dlouhý) odkaz.'; return; }
+      if(!email){ out.textContent='Vyplň nahoře svůj e-mail (ten, na který odkaz přišel).'; return; }
+      out.textContent='Přihlašuji…';
+      firebase.auth().signInWithEmailLink(email,link).then(function(){ localStorage.removeItem('ac_emailForSignIn'); }).catch(function(err){ out.textContent='⚠️ '+(err&&err.message?err.message:err)+' (Zkus poslat nový odkaz a použít ho hned – platí jen jednou.)'; });
     };
   }
   function acAuthGate(){
