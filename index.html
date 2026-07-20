@@ -180,6 +180,7 @@ padding:24px;z-index:50;overflow:auto}
 <div class="overlay" id="hydrOv" onclick="if(event.target===this)hydClose()">
   <div class="hydr-wrap">
     <div class="hydr-top"><b>🗺️ Hydranty — pokrytí požárních</b><button class="x" onclick="hydClose()">✕</button></div>
+    <div class="hydr-status"><span id="hyddClock" class="hydr-clock"></span><span class="hydr-onl">Online: <span id="hyddOnlineList"><span class="mono" style="opacity:.6">…</span></span></span></div>
     <div id="hydrMap"></div>
     <button class="hydr-burger" id="hydrBurger" onclick="hydTogglePanel()" title="Nabídka">☰</button>
     <div class="hydr-panel" id="hydrPanel">
@@ -189,6 +190,7 @@ padding:24px;z-index:50;overflow:auto}
       <label class="hydr-row"><input type="checkbox" id="hyCkAll"> <span><span class="hy-dot" style="background:#1577c8"></span> Všechny (ostatní) hydranty</span></label>
       <label class="hydr-row"><input type="checkbox" id="hyCkGap"> <span>💡 Zvýraznit mimo pokrytí</span></label>
       <div class="hydr-row" style="cursor:default">Poloměr: <select id="hyRad" style="margin:0 6px"><option>200</option><option>300</option><option>500</option></select> m</div>
+      <label class="hydr-row"><input type="checkbox" id="hyCkMarkCov" checked> <span><span class="hy-dot" style="background:#16a34a"></span> Pokrytí u doměřovaných (kružnice)</span></label>
       <div class="hydr-hint">● podzemní · ○ nadzemní · <span style="color:#0891b2">●</span> má fotku / <span style="color:#16a34a">●</span> označený = vždy vidět. Klik na hydrant → detail (mapka + foto), okruh a „Označit k doměření".</div>
       <div id="hydrSel"></div>
     </div>
@@ -209,7 +211,8 @@ padding:24px;z-index:50;overflow:auto}
 <script>
 // ---- živé hodiny ----
 function tik(){const d=new Date();let s=d.toLocaleDateString("cs-CZ",{weekday:"long",day:"numeric",month:"numeric",year:"numeric"});
-s=s.charAt(0).toUpperCase()+s.slice(1);document.getElementById("dat").textContent=s+" · "+d.toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"});}
+s=s.charAt(0).toUpperCase()+s.slice(1);var full=s+" · "+d.toLocaleTimeString("cs-CZ",{hour:"2-digit",minute:"2-digit"});
+document.getElementById("dat").textContent=full;var hc=document.getElementById("hyddClock");if(hc)hc.textContent=full;}
 tik();setInterval(tik,10000);
 
 // ---- data ----
@@ -256,7 +259,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v105";  // drž v souladu s CACHE v sw.js
+const VERZE="v106";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -2002,11 +2005,11 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
         out.push(v);
       });
       out.sort(function(a,b){ return String(a.jmeno||'').localeCompare(String(b.jmeno||''),'cs'); });
-      var el=document.getElementById('acOnlineList');
-      if(!el) return;
-      el.innerHTML=out.length
+      var html=out.length
         ? out.map(function(v){ return '<span class="mono" title="'+esc(v.jmeno||'')+'">'+esc(v.jmeno||'')+'</span>'; }).join('')
         : '<span class="mono" style="opacity:.6">nikdo</span>';
+      var el=document.getElementById('acOnlineList'); if(el)el.innerHTML=html;
+      var el2=document.getElementById('hyddOnlineList'); if(el2)el2.innerHTML=html;
     },function(){});
   }
   acPresenceWatch();
@@ -2126,6 +2129,11 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
 .hydr-wrap{position:relative;width:100%;height:100%;display:flex;flex-direction:column;background:#fff}
 .hydr-top{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid #e7f0f8;font-size:16px;flex:0 0 auto}
 .hydr-top .x{border:none;background:#f1f5f9;border-radius:8px;width:34px;height:34px;font-size:17px;cursor:pointer}
+.hydr-status{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:5px 14px;border-bottom:1px solid #eef2f6;background:#f7fbff;font-size:12.5px;color:#4a5b6d;flex:0 0 auto}
+.hydr-clock{font-weight:700;color:#0b3a66}
+.hydr-onl{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hydr-onl::before{content:"";width:8px;height:8px;border-radius:50%;background:#2faf5a;display:inline-block}
+.hydr-status .mono{background:#eaf2fb;border-radius:6px;padding:1px 7px;font-size:12px;color:#1b4a74}
 #hydrMap{flex:1 1 auto;min-height:0;background:#e8eef3}
 .hydr-panel{position:absolute;top:56px;left:10px;z-index:1000;background:#fff;border-radius:12px;box-shadow:0 6px 22px rgba(0,0,0,.22);padding:10px 12px;max-width:272px;font-size:14px;max-height:calc(100% - 74px);overflow:auto}
 .hydr-burger{position:absolute;top:60px;left:10px;z-index:1001;display:none;background:#fff;border:none;border-radius:11px;box-shadow:0 6px 22px rgba(0,0,0,.22);width:44px;height:44px;font-size:21px;cursor:pointer}
@@ -2200,6 +2208,7 @@ function hydInit(){
   document.getElementById('hyCkFire').onchange=hydRender;
   document.getElementById('hyCkAll').onchange=hydRender;
   document.getElementById('hyCkGap').onchange=hydRender;
+  document.getElementById('hyCkMarkCov').onchange=hydRender;
   document.getElementById('hyRad').onchange=function(e){HYD.radius=+e.target.value;if(HYD.selCircle)HYD.selCircle.setRadius(HYD.radius);hydRender();};
   HYD.map.on('click',function(){if(window.matchMedia('(max-width:640px)').matches){
     document.getElementById('hydrPanel').style.display='none';document.getElementById('hydrBurger').style.display='block';}});
@@ -2352,8 +2361,9 @@ function hydRender(){if(!HYD.map)return;
       if(showGap&&p.f==='O'){var out=fire.every(function(f){return hydDist(p.lat,p.lon,f.lat,f.lon)>200;});if(out)col='#f59e0b';}
       hydMarker(p,col,false).addTo(HYD.gOther);});}
   else{HYD.map.removeLayer(HYD.gOther);}
+  var showMarkCov=document.getElementById('hyCkMarkCov').checked;
   Object.keys(HYD.marked).forEach(function(id){var m=HYD.marked[id];if(HYD.filter&&m.s!==HYD.filter)return;
-    L.circle([m.lat,m.lon],{radius:HYD.radius,renderer:HYD.canvas,color:'#16a34a',weight:2,dashArray:'5 4',fillColor:'#16a34a',fillOpacity:.1}).addTo(HYD.gMarked);});
+    if(showMarkCov)L.circle([m.lat,m.lon],{radius:HYD.radius,renderer:HYD.canvas,color:'#16a34a',weight:2,dashArray:'5 4',fillColor:'#16a34a',fillOpacity:.1}).addTo(HYD.gMarked);});
   // Zdokumentované hydranty (mají fotku / jsou označené k doměření) jsou vidět a klikatelné vždy –
   // i když je jejich vrstva vypnutá – aby po přidání fotky „nezmizely".
   act.forEach(function(p){
