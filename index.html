@@ -189,7 +189,7 @@ padding:24px;z-index:50;overflow:auto}
       <label class="hydr-row"><input type="checkbox" id="hyCkAll"> <span><span class="hy-dot" style="background:#1577c8"></span> Všechny (ostatní) hydranty</span></label>
       <label class="hydr-row"><input type="checkbox" id="hyCkGap"> <span>💡 Zvýraznit mimo pokrytí</span></label>
       <div class="hydr-row" style="cursor:default">Poloměr: <select id="hyRad" style="margin:0 6px"><option>200</option><option>300</option><option>500</option></select> m</div>
-      <div class="hydr-hint">● podzemní · ○ nadzemní. Klik na hydrant → detail (mapka + foto), okruh a „Označit k doměření".</div>
+      <div class="hydr-hint">● podzemní · ○ nadzemní · <span style="color:#0891b2">●</span> má fotku / <span style="color:#16a34a">●</span> označený = vždy vidět. Klik na hydrant → detail (mapka + foto), okruh a „Označit k doměření".</div>
       <div id="hydrSel"></div>
     </div>
   </div>
@@ -256,7 +256,7 @@ function autoUpoz(zadal,resitel){ const out=[]; [zadal,resitel,ADMIN_KOD].forEac
 // TESTOVACÍ REŽIM: nová (i dosud čekající) zařízení se schválí sama – tester dostává push hned bez čekání.
 // Po skončení testování přepni na false (pak se zase schvaluje ručně v sekci Zařízení).
 const TEST_AUTO_SCHVALENI=true;
-const VERZE="v104";  // drž v souladu s CACHE v sw.js
+const VERZE="v105";  // drž v souladu s CACHE v sw.js
 // Admin práva se NEurčují z localStorage (to jde v prohlížeči podvrhnout), ale
 // z ověřeného Firebase Custom Claimu `admin` na přihlášeném účtu.
 // Claim nastavuje set_admin_claim.py (workflow „Nastavit admina"). Serverovou
@@ -2166,8 +2166,8 @@ document.addEventListener("visibilitychange",function(){ if(!document.hidden){ a
 </style>
 <script>
 /* ===== Hydranty – mapová vrstva pokrytí požárních ===== */
-var HYD={loaded:false,map:null,data:null,canvas:null,byId:{},filter:null,radius:200,marked:{},selCircle:null,
-  gCover:null,gFire:null,gOther:null,gMarked:null};
+var HYD={loaded:false,map:null,data:null,canvas:null,byId:{},filter:null,radius:200,marked:{},photos:{},selCircle:null,
+  gCover:null,gFire:null,gOther:null,gMarked:null,gDoc:null};
 function hydTogglePanel(){var p=document.getElementById('hydrPanel'),b=document.getElementById('hydrBurger');
   if(p.style.display==='none'){p.style.display='';b.style.display='none';}else{p.style.display='none';b.style.display='block';}}
 function openHydranty(){document.getElementById('hydrOv').classList.add('show');
@@ -2192,7 +2192,7 @@ function hydInit(){
   HYD.map=L.map('hydrMap',{renderer:HYD.canvas,zoomControl:true}).setView([49.7,16.5],10);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(HYD.map);
   HYD.gCover=L.layerGroup().addTo(HYD.map);HYD.gFire=L.layerGroup().addTo(HYD.map);
-  HYD.gOther=L.layerGroup();HYD.gMarked=L.layerGroup().addTo(HYD.map);
+  HYD.gOther=L.layerGroup();HYD.gMarked=L.layerGroup().addTo(HYD.map);HYD.gDoc=L.layerGroup().addTo(HYD.map);
   var sh=document.getElementById('hydrStred');
   var btns='<button class="hy-sb act" onclick="hydSetFilter(null,this)">Vše</button>';
   HYD.data.strediska.forEach(function(s){btns+='<button class="hy-sb" onclick="hydSetFilter(\''+s.kod+'\',this)" title="'+s.nazev+'">'+s.kod+'</button>';});
@@ -2204,6 +2204,7 @@ function hydInit(){
   HYD.map.on('click',function(){if(window.matchMedia('(max-width:640px)').matches){
     document.getElementById('hydrPanel').style.display='none';document.getElementById('hydrBurger').style.display='block';}});
   hydSetFilter(null,null);
+  hydLoadFotoIndex();
   setTimeout(function(){HYD.map.invalidateSize();},80);
 }
 function hydActive(){return HYD.data.body.filter(function(p){return !HYD.filter||p.s===HYD.filter;});}
@@ -2298,6 +2299,7 @@ function hydFotoUpload(inp){
       return db.ref('aquactrl_hydranty/'+id+'/foto').set({url:url,path:path,ts:now,by:by});
     }).then(function(){
       if(oldPath&&oldPath!==path){ try{firebase.storage().ref(oldPath).delete().catch(function(){});}catch(_){} }
+      HYD.photos=HYD.photos||{}; HYD.photos[id]=true; if(HYD.map)hydRender();
       if(HYDD.id===id)hydFotoLoad(id);
     });
   }).catch(function(e){ alert('Nahrání fotky selhalo: '+(e&&e.message?e.message:e)); if(HYDD.id===id)hydFotoLoad(id); });
@@ -2306,6 +2308,23 @@ function hydDetailMark(){ var id=HYDD.id; if(!id)return;
   if(HYD.marked[id]){ hydUnmark(id); } else { hydMark(id); }
   var b=HYDD.ov&&HYDD.ov.querySelector('#hyddMarkBtn'), mk=HYD.marked[id];
   if(b){ b.className='hydd-btn '+(mk?'hydd-unmark':'hydd-mark'); b.textContent=mk?('✓ Označeno '+mk.idx+' — zrušit'):'➕ Označit k doměření'; }
+}
+// Načte seznam hydrantů, které mají fotku (uzel aquactrl_hydranty) – aby šly v mapě vždy zobrazit.
+function hydLoadFotoIndex(){
+  if(!(window.firebase&&firebase.database))return;
+  firebase.database().ref('aquactrl_hydranty').get().then(function(s){
+    var ph={}; s.forEach(function(c){ var v=c.val(); if(v&&v.foto&&v.foto.url)ph[c.key]=true; });
+    HYD.photos=ph; if(HYD.map)hydRender();
+  }).catch(function(){});
+}
+// Výrazný klikatelný bod pro zdokumentovaný hydrant (má fotku → tyrkysová, jen označený → zelená).
+function hydDocMarker(p,hasPhoto){
+  var col=hasPhoto?'#0891b2':'#16a34a';
+  var m=L.circleMarker([p.lat,p.lon],{radius:7,color:'#fff',weight:2,fillColor:col,fillOpacity:1,renderer:HYD.canvas});
+  m.on('click',function(){ if(HYD.selCircle)HYD.map.removeLayer(HYD.selCircle);
+    HYD.selCircle=L.circle([p.lat,p.lon],{radius:HYD.radius,renderer:HYD.canvas,color:'#f59e0b',weight:2,dashArray:'6 5',fillColor:'#f59e0b',fillOpacity:.12}).addTo(HYD.map);
+    hydOpenDetail(p); });
+  return m;
 }
 function hydMark(id){var p=HYD.byId[id];if(!p||HYD.marked[id])return;
   var idx='K'+(Object.keys(HYD.marked).length+1);
@@ -2319,7 +2338,7 @@ function hydRenderSel(){var el=document.getElementById('hydrSel');var ks=Object.
   el.innerHTML='<div class="hydr-selh">Kandidáti k doměření ('+ks.length+'):</div>'+ks.map(function(id){var m=HYD.marked[id];
     return '<div class="hydr-selit"><span><b>'+m.idx+'</b> · '+(m.t==='pz'?'podz.':'nadz.')+' · id '+id+'</span><button onclick="hydUnmark(\''+id+'\')">✕</button></div>';}).join('');}
 function hydRender(){if(!HYD.map)return;
-  HYD.gCover.clearLayers();HYD.gFire.clearLayers();HYD.gOther.clearLayers();HYD.gMarked.clearLayers();
+  HYD.gCover.clearLayers();HYD.gFire.clearLayers();HYD.gOther.clearLayers();HYD.gMarked.clearLayers();HYD.gDoc.clearLayers();
   var act=hydActive();var fire=act.filter(function(p){return p.f==='P';});
   var showFire=document.getElementById('hyCkFire').checked;
   var showAll=document.getElementById('hyCkAll').checked;
@@ -2335,6 +2354,15 @@ function hydRender(){if(!HYD.map)return;
   else{HYD.map.removeLayer(HYD.gOther);}
   Object.keys(HYD.marked).forEach(function(id){var m=HYD.marked[id];if(HYD.filter&&m.s!==HYD.filter)return;
     L.circle([m.lat,m.lon],{radius:HYD.radius,renderer:HYD.canvas,color:'#16a34a',weight:2,dashArray:'5 4',fillColor:'#16a34a',fillOpacity:.1}).addTo(HYD.gMarked);});
+  // Zdokumentované hydranty (mají fotku / jsou označené k doměření) jsou vidět a klikatelné vždy –
+  // i když je jejich vrstva vypnutá – aby po přidání fotky „nezmizely".
+  act.forEach(function(p){
+    var hasPhoto=!!(HYD.photos&&HYD.photos[p.id]), isMarked=!!HYD.marked[p.id];
+    if(!hasPhoto&&!isMarked)return;
+    var hiddenByLayer=(p.f==='P')?!showFire:!showAll;
+    if(!hiddenByLayer)return; // už je vidět ve své vrstvě
+    hydDocMarker(p,hasPhoto).addTo(HYD.gDoc);
+  });
   hydRenderSel();
   var others=act.length-fire.length;
   document.getElementById('hydrCnt').textContent=(HYD.filter||'Vše')+' · '+fire.length+' požárních · '+others+' ostatních · '+Object.keys(HYD.marked).length+' označeno';}
